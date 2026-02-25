@@ -1,0 +1,208 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 9,
+  "summary": "AnthroVerse is a private, members-only mobile app (Android + iOS) built with Flutter and Firebase for the Anthropos chapter. It features a permanent Root Admin account (graph.dust@gmail.com) with full system override authority outside the tenure cycle. Role-based governance includes 8 roles (Root Admin, President, VP, Secretary Treasurer, LT, MC, ELT, Member). Auth uses email/password signup with profile photo; new users get isApproved=false and role=Member. Approval is restricted to Root Admin, President, VP, and ST. The community feed supports 4 categories with an announcement approval workflow (MC/ELT submit as Pending; President/VP/ST/Root Admin approve). Chapter Growth module is restricted to all leadership roles (not plain Members). Events can be created by President/VP/ST/LT/Root Admin; MC/ELT submit for approval. Payment tracking (isPaid toggle) is restricted to Root Admin, President, VP, and ST — LT cannot mark payments. UI uses a Purple Edition design system (Primary Purple #4C1D95, Violet #7C3AED, Teal #00B3A4, Gold #C9A227) with Poppins/Inter typography, dark mode (#1E1B2E background), and premium private club aesthetic. All permissions enforced at Firestore security rules and Cloud Functions level.",
+  "architectural_notes": [
+    "Stack: Flutter (Android + iOS), Firebase Auth, Firestore, Storage, Cloud Functions",
+    "Role hierarchy: President > VP > ST > LT > MC/ELT > Member; roles stored on Firestore user document",
+    "All new users created with isApproved=false and role=Member; access gated until admin approval",
+    "Announcement posts by MC/ELT use status=Pending until LT approves (status=Published); only published visible to members",
+    "Tenure automation uses Cloud Functions for batch role revocation and reassignment on bi-annual cycle",
+    "Chapter Growth module access enforced at both Firestore security rules and UI routing level",
+    "Root Admin (graph.dust@gmail.com) is a permanent account stored with role=RootAdmin; excluded from tenure reset Cloud Function batch; all Firestore rules grant full override to this UID",
+    "Payment isPaid toggle restricted to Root Admin, President, VP, ST at Firestore rule level — LT role explicitly denied write access to isPaid field",
+    "Event approval workflow mirrors announcement workflow: MC/ELT submit with status=Pending; President/VP/ST/Root Admin approve; push notification sent on approval"
+  ],
+  "known_issues": [
+    "Root Admin (graph.dust@gmail.com) is being prompted for approval on login instead of bypassing the approval gate — fix pending"
+  ],
+  "isFixRequest": true,
+  "existing_features": [
+    {
+      "id": "feature-implement-email-password-authentication-with-a-signup-form-requiring-full-name-email-password-and-profile-photo-upload-on-signup-create-a-user-record-in-the-backend-with-isapproved-false-and-role-member-users-who-are-not-yet-approved-must-be-shown-a-waiting-for-approval-screen-and-cannot-access-any-other-part-of-the-app",
+      "title": "Implement email/password authentication with a signup form requiring Full Name, Email, Password, and Profile Photo upload. On signup, create a user record in the backend with isApproved = false and role = 'Member'. Users who are not yet approved must be shown a 'Waiting for Approval' screen and cannot access any other part of the app.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-role-system-with-seven-roles-president-super-admin-vice-president-secretary-treasurer-lt-leadership-team-mc-membership-committee-elt-extended-leadership-team-and-member-enforce-tiered-permissions-members-may-post-in-general-fun-and-requirements-categories-only-lt-has-full-access-including-posting-announcements-creating-events-and-approving-content-mc-elt-can-submit-announcements-and-events-but-their-content-requires-lt-approval-before-publishing-admins-president-and-lt-can-delete-any-content-approve-users-and-assign-roles",
+      "title": "Implement a role system with seven roles: President (Super Admin), Vice President, Secretary Treasurer, LT (Leadership Team), MC (Membership Committee), ELT (Extended Leadership Team), and Member. Enforce tiered permissions: Members may post in General, Fun, and Requirements categories only; LT has full access including posting announcements, creating events, and approving content; MC/ELT can submit announcements and events but their content requires LT approval before publishing; admins (President and LT) can delete any content, approve users, and assign roles.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-a-tenure-automation-system-store-tenure-records-with-start-date-end-date-assigned-officers-in-a-tenures-collection-provide-a-start-new-tenure-admin-action-that-revokes-all-elevated-roles-resetting-everyone-to-member-then-allows-the-admin-to-assign-the-new-president-vp-and-secretary-treasurer-the-president-then-assigns-lt-members-and-lt-members-assign-mc-and-elt-members-permissions-must-update-automatically-as-roles-are-assigned-tenure-periods-are-april-1-sept-30-and-oct-1-march-31",
+      "title": "Implement a Tenure Automation system. Store tenure records (with start date, end date, assigned officers) in a Tenures collection. Provide a 'Start New Tenure' admin action that: revokes all elevated roles (resetting everyone to Member), then allows the admin to assign the new President, VP, and Secretary Treasurer. The President then assigns LT members, and LT members assign MC and ELT members. Permissions must update automatically as roles are assigned. Tenure periods are April 1–Sept 30 and Oct 1–March 31.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-a-community-feed-module-with-four-post-categories-announcements-general-fun-and-requirements-features-must-include-creating-a-post-text-optional-image-liking-a-post-commenting-on-a-post-filtering-posts-by-category-searching-posts-by-member-name-and-a-my-posts-filter-implement-an-announcement-approval-workflow-when-mc-or-elt-creates-an-announcement-post-its-status-is-set-to-pending-an-lt-member-must-approve-it-setting-status-to-published-only-published-announcements-are-visible-to-regular-members",
+      "title": "Build a Community Feed module with four post categories: Announcements, General, Fun, and Requirements. Features must include: creating a post (text + optional image), liking a post, commenting on a post, filtering posts by category, searching posts by member name, and a 'My Posts' filter. Implement an announcement approval workflow: when MC or ELT creates an Announcement post, its status is set to 'Pending'; an LT member must approve it, setting status to 'Published'; only Published announcements are visible to regular Members.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-a-chapter-growth-module-that-is-visible-only-to-users-with-roles-lt-mc-or-elt-the-module-contains-three-private-group-feeds-leadership-team-membership-committee-and-core-team-each-group-feed-supports-private-posts-file-uploads-and-role-based-access-control-so-that-only-members-of-the-relevant-role-can-view-and-post-in-their-group",
+      "title": "Build a Chapter Growth module that is visible only to users with roles LT, MC, or ELT. The module contains three private group feeds: Leadership Team, Membership Committee, and Core Team. Each group feed supports private posts, file uploads, and role-based access control so that only members of the relevant role can view and post in their group.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-an-events-module-with-upcoming-and-past-tabs-lt-users-and-approved-mc-elt-users-can-create-events-with-title-description-date-banner-image-upload-and-optional-registration-limit-all-members-can-view-events-and-register-for-them-each-registration-creates-a-record-with-ispaid-false-by-default-admin-users-can-toggle-ispaid-true-per-registration",
+      "title": "Build an Events module with Upcoming and Past tabs. LT users and approved MC/ELT users can create events with: Title, Description, Date, Banner image upload, and optional registration limit. All members can view events and register for them. Each registration creates a record with isPaid = false by default. Admin users can toggle isPaid = true per registration.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-build-a-profile-module-that-displays-the-user-s-profile-photo-full-name-email-role-badge-their-posts-my-posts-and-their-registered-events-my-registered-events-include-a-light-dark-theme-toggle-and-a-logout-button-users-can-edit-their-name-and-profile-photo",
+      "title": "Build a Profile module that displays the user's profile photo, full name, email, role badge, their posts (My Posts), and their registered events (My Registered Events). Include a light/dark theme toggle and a logout button. Users can edit their name and profile photo.",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-in-app-notifications-for-the-following-events-user-account-approved-announcement-published-new-event-created-event-reminder-24-hours-before-the-event-role-assigned-to-user-and-tenure-switched-notifications-must-be-stored-and-displayed-to-the-relevant-users-within-the-app",
+      "title": "Implement in-app notifications for the following events: user account approved, announcement published, new event created, event reminder 24 hours before the event, role assigned to user, and tenure switched. Notifications must be stored and displayed to the relevant users within the app.",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-design-the-app-with-a-clean-premium-visual-identity-deep-space-or-dark-cosmic-color-palette-with-rich-accent-colors-e-g-gold-or-amber-bold-modern-typography-card-based-layouts-and-subtle-gradient-or-glassmorphism-effects-apply-this-theme-consistently-across-all-screens-including-authentication-feed-events-profile-and-admin-areas-support-both-light-and-dark-mode-variants",
+      "title": "Design the app with a clean, premium visual identity: deep space or dark cosmic color palette with rich accent colors (e.g., gold or amber), bold modern typography, card-based layouts, and subtle gradient or glassmorphism effects. Apply this theme consistently across all screens including authentication, feed, events, profile, and admin areas. Support both light and dark mode variants.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-frontend-app-tsx-authentication-and-approval-gate-add-a-root-admin-bypass-check-if-the-currently-authenticated-user-s-email-is-graph-dust-gmail-com-skip-the-waiting-for-approval-screen-entirely-and-route-them-directly-to-the-main-app-this-check-must-run-before-the-isapproved-gate-is-evaluated",
+      "title": "In the frontend App.tsx authentication and approval gate, add a Root Admin bypass check: if the currently authenticated user's email is 'graph.dust@gmail.com', skip the 'Waiting for Approval' screen entirely and route them directly to the main app. This check must run before the isApproved gate is evaluated.",
+      "reqIds": [
+        "REQ-11"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-re-attempt-the-previous-build-and-deployment-no-code-changes-are-required-this-is-a-retry-of-the-last-failed-deployment-due-to-a-transient-technical-error",
+      "title": "Re-attempt the previous build and deployment. No code changes are required — this is a retry of the last failed deployment due to a transient technical error.",
+      "reqIds": [
+        "REQ-12"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Authentication & Approval: email/password signup with required fields (name, email, password, profile photo), isApproved=false on creation, waiting screen, admin approval and role assignment",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Roles & Governance: 7 roles (President, VP, ST, LT, MC, ELT, Member) with tiered permissions — Members post in General/Fun/Requirements, LT full access, MC/ELT submit with LT approval, admin moderation",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Tenure Automation: bi-annual tenure periods, 'Start New Tenure' admin action that revokes elevated roles and triggers role reassignment chain, stored in Tenures collection via Cloud Functions",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Feed Module: categories (Announcements, General, Fun, Requirements), create post with optional image, likes, comments, category filter, member search, My Posts filter, announcement approval workflow (Pending→Published)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Chapter Growth Module: restricted to LT/MC/ELT, private group feeds for Leadership Team, Membership Committee, Core Team with private posts, file uploads, and role-based access control",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Events Module: Upcoming/Past tabs, LT/approved MC/ELT create events (title, description, date, banner image, optional registration limit), member registration, isPaid toggle for admins",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-7",
+      "summary": "Profile Module: display photo, name, email, role badge, My Posts, My Registered Events, light/dark theme toggle, logout, editable name and profile photo",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Notifications: push notifications for user approved, announcement published, new event created, 24h event reminder, role assigned, tenure switched",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-9",
+      "summary": "Firestore collections: Users, Posts, Comments, Events, Registrations, Tenures with proper document references (userRef, postRef, eventRef)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-10",
+      "summary": "Security Rules & Storage: role-restricted Firestore rules, Firebase Storage structure (/users/{uid}/profile.jpg, /posts/{postId}/image.jpg, /events/{eventId}/banner.jpg, /chaptergrowth/{groupId}/files/)",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-11",
+      "summary": "Root Admin: permanent system owner (graph.dust@gmail.com), cannot be removed or affected by tenure reset, full override authority — appoint any role, approve users/announcements/events, mark payments, moderate all content",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-12",
+      "summary": "Event approval workflow: MC/ELT can submit events with status=Pending; President/VP/ST/Root Admin must approve before event is published and visible to members",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-13",
+      "summary": "Payment tracking restriction: only Root Admin, President, VP, and ST can toggle isPaid=true; LT explicitly cannot mark payments; paid status visible only to authorized roles on event registration list",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-14",
+      "summary": "Purple Edition UI Design System: Primary Purple #4C1D95, Violet #7C3AED, Teal #00B3A4, Gold #C9A227; dark mode with #1E1B2E bg and #2A2540 cards; Poppins (primary) + Inter (secondary); announcement gold left border, pending amber badge, paid green badge; 12px rounded corners, soft card shadows",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-15",
+      "summary": "In the backend, when a user registers or logs in with the email 'graph.dust@gmail.com', automatically set their record to isApproved = true and role = RootAdmin (or the highest admin role) without requiring manual approval. If the user record already exists with isApproved = false, update it to isApproved = true upon their next authenticated call.",
+      "reqIds": [
+        "REQ-10"
+      ],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "AnthroVerse",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

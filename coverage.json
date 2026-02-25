@@ -1,0 +1,61 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-25T14:43:56.024Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 1,
+    "implemented": 1,
+    "items": [
+      {
+        "id": "REQ-12",
+        "summary": "Re-attempt the previous build and deployment. No code changes are required — this is a retry of the last failed deployment due to a transient technical error.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/App.tsx",
+          "frontend/src/main.tsx",
+          "frontend/src/pages/FeedPage.tsx",
+          "frontend/src/pages/EventsPage.tsx",
+          "frontend/src/pages/ProfilePage.tsx",
+          "frontend/src/pages/AdminPage.tsx",
+          "frontend/src/components/AppSidebar.tsx",
+          "frontend/src/components/AppHeader.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/App.tsx",
+          "frontend/src/pages/FeedPage.tsx",
+          "frontend/src/pages/EventsPage.tsx",
+          "frontend/src/pages/ProfilePage.tsx",
+          "frontend/src/pages/AdminPage.tsx",
+          "frontend/src/components/AppSidebar.tsx",
+          "frontend/src/components/AppHeader.tsx"
+        ]
+      }
+    ]
+  },
+  "changedFiles": [
+    "backend/main.mo",
+    "build-request.json",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/App.tsx",
+    "frontend/src/components/AppHeader.tsx",
+    "frontend/src/components/AppSidebar.tsx",
+    "frontend/src/components/auth/SignupForm.tsx",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/AdminPage.tsx",
+    "frontend/src/pages/ChapterGrowthPage.tsx",
+    "frontend/src/pages/EventsPage.tsx",
+    "frontend/src/pages/FeedPage.tsx",
+    "frontend/src/pages/ProfilePage.tsx",
+    "frontend/src/pages/ProfileSetupPage.tsx",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}

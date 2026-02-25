@@ -1,0 +1,288 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --radius: 0.75rem;
+
+    /* AnthroVerse Purple Edition - Light Mode */
+    --background: 0.97 0.008 280;
+    --foreground: 0.12 0.02 265;
+    --card: 1 0 0;
+    --card-foreground: 0.12 0.02 265;
+    --popover: 1 0 0;
+    --popover-foreground: 0.12 0.02 265;
+    --primary: 0.28 0.18 290;
+    --primary-foreground: 0.98 0 0;
+    --secondary: 0.93 0.015 280;
+    --secondary-foreground: 0.28 0.18 290;
+    --muted: 0.93 0.015 280;
+    --muted-foreground: 0.48 0.04 265;
+    --accent: 0.62 0.18 185;
+    --accent-foreground: 0.98 0 0;
+    --destructive: 0.577 0.245 27.325;
+    --destructive-foreground: 0.985 0 0;
+    --border: 0.88 0.02 280;
+    --input: 0.88 0.02 280;
+    --ring: 0.48 0.22 290;
+
+    /* Gold */
+    --gold: 0.72 0.16 72;
+    --gold-light: 0.82 0.13 78;
+    --gold-dark: 0.60 0.18 68;
+
+    /* Teal */
+    --teal: 0.62 0.18 185;
+    --teal-light: 0.72 0.15 188;
+
+    /* Purple shades */
+    --purple-deep: 0.22 0.18 290;
+    --purple-mid: 0.42 0.22 290;
+    --purple-light: 0.62 0.20 290;
+
+    /* Status */
+    --success: 0.60 0.18 145;
+    --warning: 0.72 0.18 72;
+    --error: 0.577 0.245 27.325;
+
+    --chart-1: 0.646 0.222 41.116;
+    --chart-2: 0.6 0.118 184.704;
+    --chart-3: 0.398 0.07 227.392;
+    --chart-4: 0.828 0.189 84.429;
+    --chart-5: 0.769 0.188 70.08;
+
+    --sidebar: 0.98 0.008 280;
+    --sidebar-foreground: 0.12 0.02 265;
+    --sidebar-primary: 0.28 0.18 290;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.93 0.015 280;
+    --sidebar-accent-foreground: 0.28 0.18 290;
+    --sidebar-border: 0.88 0.02 280;
+    --sidebar-ring: 0.48 0.22 290;
+  }
+
+  .dark {
+    /* AnthroVerse Purple Edition - Dark Mode */
+    --background: 0.13 0.04 280;
+    --foreground: 0.95 0.01 260;
+    --card: 0.18 0.05 280;
+    --card-foreground: 0.95 0.01 260;
+    --popover: 0.18 0.05 280;
+    --popover-foreground: 0.95 0.01 260;
+    --primary: 0.55 0.22 290;
+    --primary-foreground: 0.98 0 0;
+    --secondary: 0.22 0.06 280;
+    --secondary-foreground: 0.95 0.01 260;
+    --muted: 0.22 0.06 280;
+    --muted-foreground: 0.62 0.04 265;
+    --accent: 0.62 0.18 185;
+    --accent-foreground: 0.98 0 0;
+    --destructive: 0.704 0.191 22.216;
+    --destructive-foreground: 0.985 0 0;
+    --border: 1 0 0 / 12%;
+    --input: 1 0 0 / 14%;
+    --ring: 0.55 0.22 290;
+
+    /* Gold */
+    --gold: 0.72 0.16 72;
+    --gold-light: 0.82 0.13 78;
+    --gold-dark: 0.60 0.18 68;
+
+    /* Teal */
+    --teal: 0.62 0.18 185;
+    --teal-light: 0.72 0.15 188;
+
+    /* Purple shades */
+    --purple-deep: 0.22 0.18 290;
+    --purple-mid: 0.42 0.22 290;
+    --purple-light: 0.62 0.20 290;
+
+    /* Status */
+    --success: 0.60 0.18 145;
+    --warning: 0.72 0.18 72;
+    --error: 0.704 0.191 22.216;
+
+    --chart-1: 0.488 0.243 264.376;
+    --chart-2: 0.696 0.17 162.48;
+    --chart-3: 0.769 0.188 70.08;
+    --chart-4: 0.627 0.265 303.9;
+    --chart-5: 0.645 0.246 16.439;
+
+    --sidebar: 0.15 0.045 280;
+    --sidebar-foreground: 0.95 0.01 260;
+    --sidebar-primary: 0.55 0.22 290;
+    --sidebar-primary-foreground: 0.98 0 0;
+    --sidebar-accent: 0.22 0.06 280;
+    --sidebar-accent-foreground: 0.95 0.01 260;
+    --sidebar-border: 1 0 0 / 12%;
+    --sidebar-ring: 0.55 0.22 290;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Poppins', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-poppins {
+    font-family: 'Poppins', sans-serif;
+  }
+
+  .font-inter {
+    font-family: 'Inter', sans-serif;
+  }
+
+  .glass {
+    @apply backdrop-blur-md bg-white/10 border border-white/20;
+  }
+
+  .glass-dark {
+    @apply backdrop-blur-md bg-black/20 border border-white/10;
+  }
+
+  .glass-card {
+    backdrop-filter: blur(12px);
+    background: oklch(var(--card) / 0.9);
+    border: 1px solid oklch(var(--border));
+  }
+
+  .purple-gradient {
+    background: linear-gradient(135deg,
+      oklch(0.22 0.18 290) 0%,
+      oklch(0.42 0.22 290) 100%
+    );
+  }
+
+  .gold-gradient {
+    background: linear-gradient(135deg,
+      oklch(0.72 0.16 72) 0%,
+      oklch(0.82 0.13 78) 100%
+    );
+  }
+
+  .gold-text {
+    background: linear-gradient(135deg, oklch(0.72 0.16 72), oklch(0.82 0.13 78));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .announcement-card {
+    border-left: 4px solid oklch(0.72 0.16 72);
+  }
+
+  .nav-glass {
+    backdrop-filter: blur(20px);
+    background: oklch(var(--background) / 0.85);
+    border-bottom: 1px solid oklch(var(--border));
+  }
+
+  .card-shadow {
+    box-shadow: 0 2px 12px oklch(0.22 0.18 290 / 0.08);
+  }
+
+  .dark .card-shadow {
+    box-shadow: 0 2px 12px oklch(0 0 0 / 0.3);
+  }
+
+  /* Role badge colors */
+  .role-badge-president {
+    background: oklch(0.72 0.16 72 / 0.15);
+    color: oklch(0.60 0.18 68);
+    border: 1px solid oklch(0.72 0.16 72 / 0.3);
+  }
+  .dark .role-badge-president {
+    background: oklch(0.72 0.16 72 / 0.2);
+    color: oklch(0.82 0.13 78);
+    border: 1px solid oklch(0.72 0.16 72 / 0.4);
+  }
+
+  .role-badge-vp {
+    background: oklch(0.65 0.20 50 / 0.15);
+    color: oklch(0.55 0.22 50);
+    border: 1px solid oklch(0.65 0.20 50 / 0.3);
+  }
+  .dark .role-badge-vp {
+    background: oklch(0.65 0.20 50 / 0.2);
+    color: oklch(0.75 0.18 55);
+    border: 1px solid oklch(0.65 0.20 50 / 0.4);
+  }
+
+  .role-badge-st {
+    background: oklch(0.72 0.18 72 / 0.15);
+    color: oklch(0.58 0.20 68);
+    border: 1px solid oklch(0.72 0.18 72 / 0.3);
+  }
+  .dark .role-badge-st {
+    background: oklch(0.72 0.18 72 / 0.2);
+    color: oklch(0.80 0.16 75);
+    border: 1px solid oklch(0.72 0.18 72 / 0.4);
+  }
+
+  .role-badge-lt {
+    background: oklch(0.55 0.20 240 / 0.15);
+    color: oklch(0.45 0.22 240);
+    border: 1px solid oklch(0.55 0.20 240 / 0.3);
+  }
+  .dark .role-badge-lt {
+    background: oklch(0.55 0.20 240 / 0.2);
+    color: oklch(0.70 0.18 240);
+    border: 1px solid oklch(0.55 0.20 240 / 0.4);
+  }
+
+  .role-badge-mc {
+    background: oklch(0.55 0.22 290 / 0.15);
+    color: oklch(0.42 0.22 290);
+    border: 1px solid oklch(0.55 0.22 290 / 0.3);
+  }
+  .dark .role-badge-mc {
+    background: oklch(0.55 0.22 290 / 0.2);
+    color: oklch(0.70 0.20 290);
+    border: 1px solid oklch(0.55 0.22 290 / 0.4);
+  }
+
+  .role-badge-elt {
+    background: oklch(0.62 0.18 185 / 0.15);
+    color: oklch(0.48 0.20 185);
+    border: 1px solid oklch(0.62 0.18 185 / 0.3);
+  }
+  .dark .role-badge-elt {
+    background: oklch(0.62 0.18 185 / 0.2);
+    color: oklch(0.72 0.15 188);
+    border: 1px solid oklch(0.62 0.18 185 / 0.4);
+  }
+
+  .role-badge-member {
+    background: oklch(0.55 0.04 265 / 0.15);
+    color: oklch(0.42 0.05 265);
+    border: 1px solid oklch(0.55 0.04 265 / 0.3);
+  }
+  .dark .role-badge-member {
+    background: oklch(0.55 0.04 265 / 0.2);
+    color: oklch(0.72 0.03 265);
+    border: 1px solid oklch(0.55 0.04 265 / 0.4);
+  }
+
+  .role-badge-admin {
+    background: oklch(0.28 0.18 290 / 0.15);
+    color: oklch(0.28 0.18 290);
+    border: 1px solid oklch(0.28 0.18 290 / 0.3);
+  }
+  .dark .role-badge-admin {
+    background: oklch(0.55 0.22 290 / 0.2);
+    color: oklch(0.75 0.20 290);
+    border: 1px solid oklch(0.55 0.22 290 / 0.4);
+  }
+}

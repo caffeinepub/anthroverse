@@ -1,0 +1,8 @@
+{
+  "frontend/src/pages/FeedPage.tsx": "Community feed page that is now self-contained — fetches `userRole` and `isAdmin` internally via hooks instead of accepting them as props, making it compatible as a TanStack Router route component.",
+  "frontend/src/pages/EventsPage.tsx": "Events page that is now self-contained — fetches `userRole` and `isAdmin` internally via hooks instead of accepting them as props, making it compatible as a TanStack Router route component.",
+  "frontend/src/pages/ChapterGrowthPage.tsx": "Chapter Growth page that is now self-contained — fetches `userRole`, `isAdmin`, and `currentPrincipal` internally via hooks instead of accepting them as props, making it compatible as a TanStack Router route component.",
+  "frontend/src/App.tsx": "Root app component handling auth state, login page, profile setup modal (using `useSaveCallerUserProfile`), and the authenticated TanStack Router layout with sidebar. Fixed `profilePic: undefined` instead of `null` to match the `ExternalBlob | undefined` type.",
+  "frontend/src/components/auth/SignupForm.tsx": "Multi-step signup form component that guides users through Internet Identity connection and profile creation. Replaced removed `useRegisterUser` with `useSaveCallerUserProfile` and updated the call to pass a full `UserProfile` object with `profilePic: undefined`.",
+  "frontend/src/pages/ProfileSetupPage.tsx": "Standalone profile setup page for new users to enter their name, email, and optional profile photo. Replaced removed `useRegisterUser` with `useSaveCallerUserProfile` and updated the mutation call accordingly."
+}

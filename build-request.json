@@ -1,0 +1,34 @@
+{
+  "kind": "build_request",
+  "title": "Retry last failed deployment",
+  "priority": "high",
+  "requirements": [
+    {
+      "id": "REQ-12",
+      "text": "Re-attempt the previous build and deployment. No code changes are required — this is a retry of the last failed deployment due to a transient technical error.",
+      "target": "both",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "try again"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The application builds successfully without errors.",
+        "The deployed app is accessible and all previously implemented features remain functional."
+      ]
+    }
+  ],
+  "constraints": [
+    "Do not introduce any new features or code changes — this is a pure retry of the last deployment."
+  ],
+  "nonGoals": [
+    "No new features, bug fixes, or refactors beyond what was already implemented."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  }
+}

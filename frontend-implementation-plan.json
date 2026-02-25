@@ -1,0 +1,57 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Retry last failed deployment",
+  "requirements": [
+    {
+      "id": "REQ-12",
+      "summary": "Re-attempt the previous build and deployment with no code changes",
+      "acceptanceCriteria": [
+        "The application builds successfully without errors.",
+        "The deployed app is accessible and all previously implemented features remain functional."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Verify the root component still correctly handles authentication state, approval checks, and profile setup gating before rendering the TanStack Router-based authenticated app. No changes required — this is a verification pass to ensure the routing and auth flow remain intact after retry."
+        },
+        {
+          "path": "frontend/src/main.tsx",
+          "operation": "modify",
+          "description": "Verify the application entry point correctly mounts the React app with QueryClientProvider and InternetIdentityProvider. No changes required — this is a verification pass to ensure the app initialization remains correct after retry."
+        },
+        {
+          "path": "frontend/src/pages/FeedPage.tsx",
+          "operation": "modify",
+          "description": "Verify the social feed page correctly renders posts, filters, and the post creation dialog with image upload support. No changes required — this is a verification pass to ensure all previously implemented features remain functional after retry."
+        },
+        {
+          "path": "frontend/src/pages/EventsPage.tsx",
+          "operation": "modify",
+          "description": "Verify the events page correctly displays upcoming and past events with the create event dialog. No changes required — this is a verification pass to ensure event functionality remains intact after retry."
+        },
+        {
+          "path": "frontend/src/pages/ProfilePage.tsx",
+          "operation": "modify",
+          "description": "Verify the user profile page correctly shows avatar, role badge, posts, and registered events tabs with the edit dialog. No changes required — this is a verification pass to ensure profile features remain functional after retry."
+        },
+        {
+          "path": "frontend/src/pages/AdminPage.tsx",
+          "operation": "modify",
+          "description": "Verify the admin panel page correctly checks permissions and renders TenureManagement and RoleAssignmentPanel components. No changes required — this is a verification pass to ensure admin functionality remains intact after retry."
+        },
+        {
+          "path": "frontend/src/components/AppSidebar.tsx",
+          "operation": "modify",
+          "description": "Verify the sidebar navigation correctly shows role-gated nav links and current user profile info. No changes required — this is a verification pass to ensure navigation remains functional after retry."
+        },
+        {
+          "path": "frontend/src/components/AppHeader.tsx",
+          "operation": "modify",
+          "description": "Verify the sticky header correctly displays the logo, menu toggle, and notification bell dropdown. No changes required — this is a verification pass to ensure header functionality remains intact after retry."
+        }
+      ]
+    }
+  ]
+}
