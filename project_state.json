@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 17,
+  "projectStateVersion": 19,
   "summary": "AnthroVerse is a private, members-only mobile app (Android + iOS) built with Flutter and Firebase for the Anthropos chapter. It features a permanent Root Admin account (graph.dust@gmail.com) with full system override authority outside the tenure cycle. Role-based governance includes 8 roles (Root Admin, President, VP, Secretary Treasurer, LT, MC, ELT, Member) plus dynamic sub-roles (e.g., Events Head, Growth Head, Creative Lead). Role creation: Root Admin can create/delete any role; President creates main/sub roles; VP creates MC sub-roles; ST creates event sub-roles. Auth uses email/password signup with profile photo; new users get isApproved=false and role=Member. Approval restricted to Root Admin, President, VP, and ST. The community feed supports 4 categories with announcement approval workflow (MC/ELT submit as Pending; President/VP/ST/Root Admin approve; President can publish announcements directly). Chapter Growth module is restricted to leadership roles (not plain Members) and includes Leadership Team, Membership Committee, Core Committee, Event Teams, and Custom groups. Events can be created directly by Root Admin/President/VP/ST; LT/MC/ELT/sub-role members submit with Pending status for approval. Payment tracking (isPaid toggle) restricted to Root Admin, President, VP, and ST. Database includes Roles and Groups collections in addition to Users, Posts, Comments, Events, Registrations, Tenures. UI uses Purple Edition design system (Primary Purple #4C1D95, Violet #7C3AED, Teal #00B3A4, Gold #C9A227) with Poppins/Inter typography, dark mode (#1E1B2E background), and premium private club aesthetic. All permissions enforced at Firestore security rules and Cloud Functions level.",
   "architectural_notes": [
     "Stack: Flutter (Android + iOS), Firebase Auth, Firestore, Storage, Cloud Functions",
@@ -17,7 +17,7 @@
   "known_issues": [
     "Root Admin (graph.dust@gmail.com) is being prompted for approval on login instead of bypassing the approval gate — fix pending",
     "Root Admin (graph.dust@gmail.com) displays as 'Member' role instead of admin/root admin role in the UI — role display fix pending",
-    "App shows blank page after AnthroVerse loading screen — app fails to progress past the initial splash/loading screen"
+    "Root Admin (graph.dust@gmail.com) sees blank page after loading screen while other accounts load correctly — root admin specific rendering failure"
   ],
   "isFixRequest": true,
   "existing_features": [
@@ -154,6 +154,22 @@
       "title": "Audit the TanStack Router and React Query initialization in App.tsx: ensure the router is fully initialized before any route rendering begins, that all query hooks have defined fallback states (isLoading, isError) handled before returning JSX, and that no query result is destructured or accessed before it is confirmed non-null. Fix any race conditions between the Internet Identity auth state resolving and the router attempting to render protected routes.",
       "reqIds": [
         "REQ-29"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-app-tsx-audit-the-root-admin-bypass-code-path-specifically-for-the-email-graph-dust-gmail-com-the-blank-page-occurs-only-for-this-account-while-other-accounts-render-correctly-indicating-the-root-admin-conditional-branch-either-throws-an-unhandled-error-enters-an-infinite-loading-state-or-renders-null-undefined-trace-the-execution-path-after-the-root-admin-email-check-ensure-the-user-profile-query-result-is-confirmed-non-null-before-any-property-access-that-the-root-admin-branch-does-not-depend-on-isapproved-being-true-before-proceeding-and-that-no-missing-or-undefined-variable-causes-a-silent-crash-add-console-logging-or-guard-clauses-to-ensure-this-path-always-resolves-to-rendering-the-main-app-layout",
+      "title": "In App.tsx, audit the Root Admin bypass code path specifically for the email 'graph.dust@gmail.com'. The blank page occurs only for this account while other accounts render correctly, indicating the root admin conditional branch either throws an unhandled error, enters an infinite loading state, or renders null/undefined. Trace the execution path after the root admin email check: ensure the user profile query result is confirmed non-null before any property access, that the root admin branch does not depend on isApproved being true before proceeding, and that no missing or undefined variable causes a silent crash. Add console logging or guard clauses to ensure this path always resolves to rendering the main app layout.",
+      "reqIds": [
+        "REQ-30"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-app-tsx-ensure-that-the-root-admin-bypass-check-for-graph-dust-gmail-com-is-structurally-isolated-from-the-isapproved-gate-and-the-profile-null-guard-specifically-1-evaluate-the-email-check-against-the-identity-profile-only-after-the-profile-query-has-settled-not-during-loading-2-if-the-profile-query-returns-null-undefined-for-the-root-admin-synthesize-a-minimal-fallback-user-object-with-role-rootadmin-and-isapproved-true-so-the-render-path-is-never-blocked-3-never-allow-the-root-admin-code-path-to-fall-through-to-the-waitingforapproval-or-profilesetup-branches",
+      "title": "In App.tsx, ensure that the root admin bypass check for 'graph.dust@gmail.com' is structurally isolated from the isApproved gate and the profile-null guard. Specifically: (1) evaluate the email check against the identity/profile only after the profile query has settled (not during loading), (2) if the profile query returns null/undefined for the root admin, synthesize a minimal fallback user object with role = #rootAdmin and isApproved = true so the render path is never blocked, (3) never allow the root admin code path to fall through to the WaitingForApproval or ProfileSetup branches.",
+      "reqIds": [
+        "REQ-31"
       ],
       "version": 1
     }
@@ -366,6 +382,14 @@
       "summary": "Restrict payment tracking in the Events module: only Root Admin, President, Vice President, and Secretary Treasurer may toggle isPaid = true on any event registration. LT, MC, ELT, and plain Members must not see the isPaid toggle control and must receive an error if they attempt the backend call directly. The paid status column in the registration list must be hidden for unauthorised roles.",
       "reqIds": [
         "REQ-26"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-34",
+      "summary": "In the backend (main.mo), add a guard at the entry point of getMyProfile (and any equivalent profile-fetch function) so that if the caller's email is exactly 'graph.dust@gmail.com' and their record is missing or has isApproved = false or role != #rootAdmin, the record is created or updated to isApproved = true and role = #rootAdmin before returning. This ensures the frontend never receives a null, unapproved, or low-privilege profile for the root admin on any query.",
+      "reqIds": [
+        "REQ-32"
       ],
       "status": "pending"
     }

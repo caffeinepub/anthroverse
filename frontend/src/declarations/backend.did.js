@@ -158,7 +158,7 @@ export const idlService = IDL.Service({
       [],
     ),
   'deletePost' : IDL.Func([IDL.Nat], [], []),
-  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(User)], ['query']),
+  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(User)], []),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getComments' : IDL.Func([IDL.Nat], [IDL.Vec(Comment)], ['query']),
   'getEventRegistrations' : IDL.Func(
@@ -353,7 +353,7 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'deletePost' : IDL.Func([IDL.Nat], [], []),
-    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(User)], ['query']),
+    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(User)], []),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getComments' : IDL.Func([IDL.Nat], [IDL.Vec(Comment)], ['query']),
     'getEventRegistrations' : IDL.Func(

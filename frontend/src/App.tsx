@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { createRouter, createRoute, createRootRoute, RouterProvider, Outlet } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { SidebarProvider } from '@/components/ui/sidebar';
@@ -7,6 +7,7 @@ import { useInternetIdentity } from './hooks/useInternetIdentity';
 import { useActor } from './hooks/useActor';
 import { useGetCallerUserProfile, useIsCallerApproved } from './hooks/useQueries';
 import { Role } from './backend';
+import type { User } from './backend';
 import AppSidebar from './components/AppSidebar';
 import LoginPage from './pages/LoginPage';
 import FeedPage from './pages/FeedPage';
@@ -67,6 +68,9 @@ declare module '@tanstack/react-router' {
   }
 }
 
+// ─── Root Admin Email ─────────────────────────────────────────────────────────
+const ROOT_ADMIN_EMAIL = 'graph.dust@gmail.com';
+
 // ─── App Content ─────────────────────────────────────────────────────────────
 function AppContent() {
   const { identity, clear, isInitializing } = useInternetIdentity();
@@ -84,28 +88,62 @@ function AppContent() {
   const {
     data: isApproved,
     isLoading: approvalLoading,
+    isFetched: approvalFetched,
   } = useIsCallerApproved();
 
   // Combined loading states
   const profileLoading = actorFetching || profileQueryLoading;
   const profileFetched = !!actor && profileQueryFetched;
 
-  // Root admin bypass
-  const isRootAdmin = userProfile?.role === Role.rootAdmin;
+  // Root admin bypass:
+  // Case 1: Profile exists and has rootAdmin role
+  // Case 2: Profile is null but isApproved=true (happens after saveCallerUserProfile
+  //         with root admin email — backend sets AccessControl #admin which makes
+  //         isCallerApproved return true, but getCallerUserProfile still returns null
+  //         because UserApproval state is separate)
+  const isRootAdminByRole = userProfile?.role === Role.rootAdmin;
+  const isRootAdminByApproval = userProfile === null && isApproved === true && approvalFetched;
 
+  // Synthesize a fallback profile for root admin when profile is null but approved
+  const effectiveUserProfile: User | null = useMemo(() => {
+    if (userProfile !== null && userProfile !== undefined) return userProfile;
+    if (isRootAdminByApproval) {
+      // Root admin has been set up (saveCallerUserProfile was called with root admin email)
+      // but getCallerUserProfile returns null due to backend UserApproval state mismatch.
+      // Synthesize a minimal fallback so the app renders correctly.
+      return {
+        name: 'Root Admin',
+        email: ROOT_ADMIN_EMAIL,
+        role: Role.rootAdmin,
+        isApproved: true,
+        profilePic: undefined,
+      };
+    }
+    return null;
+  }, [userProfile, isRootAdminByApproval]);
+
+  const isRootAdmin = isRootAdminByRole || isRootAdminByApproval;
+
+  // Show profile setup only when:
+  // - authenticated, actor ready, profile query settled
+  // - profile is null
+  // - NOT a root admin bypass case (isApproved=true means root admin already set up)
   const showProfileSetup =
     isAuthenticated &&
     !actorFetching &&
     !profileLoading &&
     profileFetched &&
-    userProfile === null;
+    approvalFetched &&
+    !approvalLoading &&
+    effectiveUserProfile === null;
 
   const showWaitingForApproval =
     isAuthenticated &&
     !actorFetching &&
     !profileLoading &&
     profileFetched &&
-    userProfile !== null &&
+    approvalFetched &&
+    effectiveUserProfile !== null &&
     !isRootAdmin &&
     isApproved === false &&
     !approvalLoading;
@@ -149,16 +187,21 @@ function AppContent() {
     );
   }
 
-  // Phase 5: Profile loading
-  if (profileLoading || !profileFetched) {
+  // Phase 5: Profile or approval loading — wait for both to settle before deciding
+  if (profileLoading || !profileFetched || approvalLoading || !approvalFetched) {
     return <LoadingScreen />;
   }
 
-  // Phase 6: Profile setup needed
+  // Phase 6: Profile setup needed (not root admin, no profile yet)
   if (showProfileSetup) {
     return (
       <div className="min-h-screen bg-background">
-        <ProfileSetupModal onComplete={() => qc.invalidateQueries({ queryKey: ['currentUserProfile'] })} />
+        <ProfileSetupModal
+          onComplete={() => {
+            qc.invalidateQueries({ queryKey: ['currentUserProfile'] });
+            qc.invalidateQueries({ queryKey: ['isCallerApproved'] });
+          }}
+        />
       </div>
     );
   }
@@ -172,11 +215,11 @@ function AppContent() {
     );
   }
 
-  // Phase 8: Fully authenticated and approved
+  // Phase 8: Fully authenticated and approved — render main app
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar userProfile={userProfile ?? null} onLogout={handleLogout} />
+        <AppSidebar userProfile={effectiveUserProfile} onLogout={handleLogout} />
         <main className="flex-1 overflow-auto">
           <RouterProvider router={router} />
         </main>

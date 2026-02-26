@@ -27,8 +27,15 @@ export default function ProfileSetupModal({ onComplete }: ProfileSetupModalProps
         isApproved: false,
         profilePic: undefined,
       });
+      // Invalidate both profile and approval queries so App.tsx re-evaluates
+      // the root admin bypass (isCallerApproved returns true after saveCallerUserProfile
+      // sets AccessControl #admin for graph.dust@gmail.com)
       await qc.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      await qc.refetchQueries({ queryKey: ['currentUserProfile'] });
+      await qc.invalidateQueries({ queryKey: ['isCallerApproved'] });
+      await Promise.all([
+        qc.refetchQueries({ queryKey: ['currentUserProfile'] }),
+        qc.refetchQueries({ queryKey: ['isCallerApproved'] }),
+      ]);
       onComplete();
     } catch (err: any) {
       setError(err?.message || 'Failed to save profile. Please try again.');

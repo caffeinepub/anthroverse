@@ -1,61 +1,33 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-26T06:38:11.821Z",
-  "summary": "The diff implements most of the required fixes: an ErrorBoundary component is added (REQ-28), App.tsx is overhauled with defensive loading states and fallback UI paths (REQ-27), and useQueries.ts adds explicit isLoading/isError handling with actor guards (REQ-29). However, some specific acceptance criteria cannot be fully confirmed due to truncation of App.tsx, and the ErrorBoundary is not clearly shown wrapping the root in main.tsx.",
+  "generatedAt": "2026-02-26T06:56:06.350Z",
+  "summary": "The diff modifies backend/main.mo and frontend/src/App.tsx (along with supporting files) to address the root admin blank page issue. REQ-30 and REQ-31 appear partially implemented in App.tsx with fallback profile synthesis and bypass logic. REQ-32 appears partially implemented in main.mo with an ensureRootAdminUser helper. However, due to truncation of both main.mo and App.tsx, full verification of all acceptance criteria is not possible. Based on available evidence, the core structures are present but some details cannot be confirmed.",
   "missing_requirements": [
     {
-      "id": "REQ-28",
-      "requirement": "A React ErrorBoundary component must wrap the root App component in main.tsx or equivalent non-immutable entry point.",
-      "reason": "The ErrorBoundary component is created in frontend/src/components/ErrorBoundary.tsx, but the diff does not show main.tsx being modified to wrap the App component with it. Without a change to main.tsx, the boundary may not be at the root level.",
+      "id": "REQ-32",
+      "requirement": "In main.mo, add a guard at the entry point of getMyProfile so that if the caller's email is exactly 'graph.dust@gmail.com' and their record is missing or has isApproved = false or role != #rootAdmin, the record is created or updated to isApproved = true and role = #rootAdmin before returning.",
+      "reason": "The diff shows an ensureRootAdminUser helper function in main.mo, but the file is truncated before showing whether this function is actually called within getMyProfile or any equivalent profile-fetch function. It is unclear if the guard is wired into getMyProfile as required.",
       "evidence": [
-        "frontend/src/components/ErrorBoundary.tsx"
+        "backend/main.mo"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "A ProfileSetupModal component was added as a new modal-based profile setup flow.",
-      "reason": "The build request did not request a new ProfileSetupModal component — only diagnostic fixes and error boundary additions were requested. This is a new UI feature not mentioned in any requirement.",
+      "description": "ProfileSetupModal.tsx was modified to invalidate and refetch both 'currentUserProfile' and 'isCallerApproved' queries after saving a profile, with explicit comment referencing root admin bypass via isCallerApproved.",
+      "reason": "The build request only asked for fixes in App.tsx (REQ-30, REQ-31) and main.mo (REQ-32). Modifying ProfileSetupModal.tsx with query invalidation logic and root-admin-specific comments was not requested.",
       "evidence": [
         "frontend/src/components/ProfileSetupModal.tsx"
       ]
-    },
-    {
-      "description": "A WaitingForApproval component was added as a standalone waiting screen component.",
-      "reason": "The build request does not request creation of a new WaitingForApproval component. While a waiting state may be needed for flow, creating a new dedicated component goes beyond the stated requirements which focused on fixing blank pages and adding error boundaries.",
-      "evidence": [
-        "frontend/src/components/WaitingForApproval.tsx"
-      ]
-    },
-    {
-      "description": "An AuthPage component combining login and signup was added.",
-      "reason": "The build request does not request creation of a new AuthPage combining login and signup views. This is a new feature not mentioned in REQ-27, REQ-28, or REQ-29.",
-      "evidence": [
-        "frontend/src/pages/AuthPage.tsx"
-      ]
     }
   ],
-  "confidence": 0.65,
+  "confidence": 0.55,
   "changed_files": [
+    "backend/main.mo",
     "frontend-file-summaries.txt",
     "frontend/src/App.tsx",
-    "frontend/src/components/ErrorBoundary.tsx",
     "frontend/src/components/ProfileSetupModal.tsx",
-    "frontend/src/components/WaitingForApproval.tsx",
-    "frontend/src/components/auth/SignupForm.tsx",
-    "frontend/src/components/events/CreateEventForm.tsx",
-    "frontend/src/components/feed/CreatePostForm.tsx",
-    "frontend/src/components/feed/PendingApprovals.tsx",
-    "frontend/src/components/layout/MainLayout.tsx",
-    "frontend/src/hooks/useQueries.ts",
-    "frontend/src/lib/utils.ts",
-    "frontend/src/pages/AuthPage.tsx",
-    "frontend/src/pages/ChapterGrowthPage.tsx",
-    "frontend/src/pages/EventsPage.tsx",
-    "frontend/src/pages/FeedPage.tsx",
-    "frontend/src/pages/ProfilePage.tsx",
-    "frontend/src/pages/ProfileSetupPage.tsx",
     "project_state.json"
   ]
 }

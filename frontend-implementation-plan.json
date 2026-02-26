@@ -1,70 +1,39 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix blank page after AnthroVerse loading screen",
+  "title": "Fix blank page for Root Admin (graph.dust@gmail.com) after loading screen",
   "requirements": [
     {
-      "id": "REQ-27",
-      "summary": "Diagnose and fix the blank page that appears after the AnthroVerse loading/splash screen by auditing App.tsx for unhandled promise rejections, missing null checks on actor or user profile queries, and router initialization errors",
+      "id": "REQ-30",
+      "summary": "Audit and fix the Root Admin bypass code path in App.tsx to prevent blank page rendering for graph.dust@gmail.com",
       "acceptanceCriteria": [
-        "After the AnthroVerse loading screen completes, the app always renders either the authentication page or the main app layout — never a blank white/dark screen.",
-        "If the backend actor is unavailable or returns an error during initial load, the app falls back gracefully to the auth/login page rather than hanging or going blank.",
-        "If the user profile query fails or returns null/undefined, the app does not crash silently — it renders an appropriate fallback UI.",
-        "Any unhandled promise rejections or thrown errors during initialization are caught by an error boundary or try/catch and result in a visible error state rather than a blank page.",
-        "The root admin user (graph.dust@gmail.com) can also progress past the loading screen without hitting a blank page."
+        "Logging in with graph.dust@gmail.com successfully renders the main app layout without a blank page",
+        "The root admin bypass path does not throw any unhandled errors or enter an infinite loading state",
+        "All other accounts continue to work as before",
+        "If the user profile query returns null or undefined for the root admin, the app does not crash — it waits or constructs a fallback profile"
       ],
       "file_operations": [
         {
           "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Audit and fix the root component initialization logic: Add explicit null checks before rendering any queries that depend on actor or identity. Ensure all useQuery hooks have explicit isLoading and isError handling before attempting to access data. Add defensive fallbacks so that if actor initialization fails or user profile query returns an error, the app renders the AuthPage or a meaningful error state instead of attempting to render undefined data. Ensure the router does not try to render authenticated routes before the Internet Identity auth state has fully resolved. Wrap any async initialization logic in try/catch blocks and provide a fallback UI path for each failure scenario. Verify that the profile-setup modal and approval gate logic do not block rendering when queries are still loading or when actor is unavailable."
-        },
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Review all query hooks (especially useGetCallerUserProfile and any others called during App initialization) to ensure they return proper loading states and do not throw unhandled errors when actor is null or queries fail. Add retry: false or appropriate error handling to prevent silent failures. Ensure the isLoading state correctly reflects both actor availability and query fetch status, similar to the pattern shown in the authorization component usage (actorFetching || query.isLoading). This prevents premature data access before queries complete."
-        },
-        {
-          "path": "frontend/src/main.tsx",
-          "operation": "modify",
-          "description": "Ensure the React root rendering is wrapped in a try/catch block to capture any synchronous errors during initial render. Add a fallback error UI in case the QueryClientProvider or InternetIdentityProvider initialization fails. This provides a last-resort safety net if the entire app fails to mount, preventing a completely blank page."
+          "description": "Fix the root admin bypass logic for graph.dust@gmail.com: (1) Move the root admin email check to only execute after the profile query has completed (profileLoading is false and isFetched is true), not during loading. (2) Add explicit null/undefined guards before accessing userProfile.email to prevent silent crashes. (3) Add console logging to trace the root admin code path execution. (4) Ensure that when userProfile is null for the root admin email, the code waits for the profile query to settle rather than rendering a blank state. (5) Verify that the root admin path resolves to rendering <RouterProvider router={router} /> and never falls through to WaitingForApproval or ProfileSetup branches. (6) Add a guard clause that if identity.getPrincipal().toString() matches a known root admin principal (if available) or if the email check passes, bypass approval gates entirely."
         }
       ]
     },
     {
-      "id": "REQ-28",
-      "summary": "Add a top-level React error boundary component wrapping the entire App tree to catch render errors and display a minimal recovery UI instead of a blank page",
+      "id": "REQ-31",
+      "summary": "Structurally isolate the root admin bypass from approval and profile-null guards in App.tsx",
       "acceptanceCriteria": [
-        "A React ErrorBoundary component is present and wraps the root App component in main.tsx or equivalent non-immutable entry point.",
-        "When a render error is thrown anywhere in the tree, the boundary catches it and displays a user-friendly recovery message instead of a blank page.",
-        "The error boundary does not modify any files listed in frontend.immutablePaths."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/ErrorBoundary.tsx",
-          "operation": "create",
-          "description": "Create a new React class component ErrorBoundary that implements componentDidCatch and getDerivedStateFromError lifecycle methods. When an error is caught, render a minimal recovery UI with a message like 'Something went wrong — please refresh the page' and a button to reload the window. Include optional error details in development mode for debugging. This component will be used to wrap the entire App tree in main.tsx."
-        },
-        {
-          "path": "frontend/src/main.tsx",
-          "operation": "modify",
-          "description": "Import the new ErrorBoundary component and wrap the entire App component with it inside the React root render call. This ensures any uncaught render errors in the App tree are caught and displayed as a recovery UI instead of causing a blank page. Place the ErrorBoundary inside the QueryClientProvider and InternetIdentityProvider wrappers so it can catch errors from the main application logic."
-        }
-      ]
-    },
-    {
-      "id": "REQ-29",
-      "summary": "Audit the TanStack Router and React Query initialization in App.tsx to ensure the router is fully initialized before rendering routes, that all query hooks have defined fallback states handled, and that no race conditions exist between Internet Identity auth state and protected route rendering",
-      "acceptanceCriteria": [
-        "The router does not attempt to render any authenticated route before the Internet Identity auth state has resolved.",
-        "All useQuery hooks used in App.tsx or the root layout handle isLoading and isError states explicitly — no component renders JSX that accesses undefined data.",
-        "The app reliably transitions from the loading screen to a visible page (auth or main) on every page load/refresh, with no blank screen regression."
+        "graph.dust@gmail.com never sees the WaitingForApproval screen",
+        "graph.dust@gmail.com never sees the ProfileSetup screen unless explicitly navigating there",
+        "If the backend profile query fails or returns null for the root admin, a fallback profile object is used and the main layout renders",
+        "The root admin bypass check only runs after the auth and profile loading phase is complete, not during it"
       ],
       "file_operations": [
         {
           "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Audit the router and query initialization sequence: Ensure that before the router renders any routes, the Internet Identity auth state (from useInternetIdentity) is fully resolved (loginStatus is not 'logging-in'). Add an explicit loading state check that shows a loading spinner or splash screen while auth is initializing. Ensure that all useQuery hooks (e.g., useGetCallerUserProfile) are only enabled after the actor is available and identity is resolved. Add explicit conditional rendering: if auth is still loading, show a loading UI; if actor is null or queries are loading, show a loading fallback; only render routes when all dependencies are ready. Verify that no JSX attempts to destructure or access query data before checking query.isLoading and query.isError. Ensure the approval gate and profile setup modal do not block rendering when their queries are in a loading or error state."
+          "description": "Refactor the conditional rendering logic in App.tsx to structurally separate the root admin path: (1) After profileLoading is false and isFetched is true, check if userProfile?.email === 'graph.dust@gmail.com' OR if a hardcoded root admin principal matches the current identity. (2) If the root admin check passes but userProfile is null, synthesize a minimal fallback User object with { name: 'Root Admin', email: 'graph.dust@gmail.com', role: Role.rootAdmin, isApproved: true } and pass it to the router context or store it in local state. (3) Ensure the root admin code path skips both the isApproved check and the userProfile === null check that would trigger ProfileSetup. (4) The render flow should be: if (isRootAdmin) { render main app } else if (!isApproved) { render WaitingForApproval } else if (userProfile === null) { render ProfileSetup } else { render main app }. (5) Add inline comments documenting the root admin bypass logic for future maintainers."
         }
       ]
     }

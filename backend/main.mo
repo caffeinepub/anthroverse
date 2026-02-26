@@ -16,9 +16,7 @@ import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import UserApproval "user-approval/approval";
 
-
-
-actor {
+(actor {
   include MixinStorage();
 
   module EventEntriesByEventId {
@@ -465,19 +463,47 @@ actor {
     isApprovedOrAdmin(caller);
   };
 
-  public query ({ caller }) func getCallerUserProfile() : async ?User {
+  // This always returns non-null, #rootAdmin profile for the root admin principal.
+  // Never returns pending or non-admin profile for graph.dust@gmail.com
+  public shared ({ caller }) func getCallerUserProfile() : async ?User {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only authenticated users can get their profile");
     };
+
+    // Special handling for root admin
     switch (users.get(caller)) {
-      case (null) { null };
-      case (?user) {
-        if (user.email == "graph.dust@gmail.com") {
-          if (user.role != #rootAdmin or not user.isApproved) {
-            return ?{ user with role = #rootAdmin; isApproved = true };
+      case (null) {
+        // If this is the root admin, ensure and return the profile
+        if (UserApproval.isApproved(approvalState, caller)) {
+          let rootProfile = {
+            name = "Root Admin";
+            email = "graph.dust@gmail.com";
+            role = #rootAdmin;
+            isApproved = true;
+            profilePic = null;
+          };
+          users.add(caller, rootProfile);
+          AccessControl.assignRole(accessControlState, caller, caller, #admin);
+          return ?rootProfile;
+        };
+        return null; // Not root admin, not found
+      };
+      case (?u) {
+        // If this is the root admin but not approved, upgrade to approved
+        if (u.email == "graph.dust@gmail.com") {
+          if (UserApproval.isApproved(approvalState, caller)) {
+            // Only migrate to #rootAdmin if approved
+            if (u.role != #rootAdmin or not u.isApproved) {
+              let updated = { u with role = #rootAdmin; isApproved = true };
+              users.add(caller, updated);
+              AccessControl.assignRole(accessControlState, caller, caller, #admin);
+              return ?updated;
+            };
+          } else {
+            return null; // Not approved (pending or rejected)
           };
         };
-        ?user;
+        ?u;
       };
     };
   };
@@ -1181,4 +1207,4 @@ actor {
       case (#rootAdmin) { "Root Admin" };
     };
   };
-};
+});

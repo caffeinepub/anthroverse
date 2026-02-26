@@ -1,13 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the blank page that appears after the AnthroVerse loading/splash screen by adding defensive error handling, an error boundary, and resolving initialization race conditions.
+**Goal:** Fix the blank page that appears for the Root Admin account (`graph.dust@gmail.com`) after the loading screen, while all other accounts continue to work normally.
 
 **Planned changes:**
-- Audit `App.tsx` for unhandled promise rejections, missing null checks on actor/user profile queries, and router initialization errors that cause a silent blank screen
-- Add a top-level React `ErrorBoundary` component in `main.tsx` wrapping the entire app tree, displaying a recovery message on render errors
-- Ensure the TanStack Router does not render authenticated routes before Internet Identity auth state has resolved
-- Add explicit `isLoading` and `isError` handling to all `useQuery` hooks in `App.tsx` and the root layout so no component accesses undefined data
-- Add fallback states so the app always progresses to either the auth page or main layout, even if backend queries fail
+- In `App.tsx`, audit and fix the root admin bypass code path so it only runs after auth and profile loading is complete, never during it
+- In `App.tsx`, add a fallback profile object (role = `#rootAdmin`, isApproved = true) when the profile query returns null or undefined for `graph.dust@gmail.com`
+- In `App.tsx`, ensure the root admin code path is structurally isolated from the `isApproved` gate and profile-null guard, so it never falls through to `WaitingForApproval` or `ProfileSetup` branches
+- In the backend (`main.mo`), add a guard in `getMyProfile` so that if the caller is `graph.dust@gmail.com` and their record is missing, unapproved, or lacks `#rootAdmin` role, the record is auto-created or corrected before returning
 
-**User-visible outcome:** After the loading screen, the app always navigates to either the authentication page or the main app layout — never a blank page — and any unexpected errors show a user-friendly recovery message instead of a blank screen.
+**User-visible outcome:** Logging in with `graph.dust@gmail.com` successfully renders the main app layout without a blank page, and no other accounts are affected.

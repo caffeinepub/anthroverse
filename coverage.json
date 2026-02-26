@@ -1,44 +1,18 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-26T06:38:11.826Z",
+  "generatedAt": "2026-02-26T06:56:06.353Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
     "total": 3,
-    "implemented": 3,
+    "implemented": 2,
     "items": [
       {
-        "id": "REQ-27",
-        "summary": "Diagnose and fix the blank page that appears after the AnthroVerse loading/splash screen. Audit App.tsx for any unhandled promise rejections, missing null checks on actor or user profile queries, or router initialization errors that would cause the app to silently fail and render nothing after the splash. Add defensive fallbacks (e.g., error boundaries, loading fallback states) so the app always progresses to either the auth page or the main layout regardless of backend query failures.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/App.tsx",
-          "frontend/src/hooks/useQueries.ts",
-          "frontend/src/main.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/App.tsx",
-          "frontend/src/hooks/useQueries.ts"
-        ]
-      },
-      {
-        "id": "REQ-28",
-        "summary": "Add a top-level React error boundary component wrapping the entire App tree. If any component in the tree throws during render or in a lifecycle, display a minimal recovery UI (e.g., 'Something went wrong — please refresh') instead of a blank page. This must not affect the immutable files under frontend/src/hooks/ or frontend/src/components/ui.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/components/ErrorBoundary.tsx",
-          "frontend/src/main.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/components/ErrorBoundary.tsx"
-        ]
-      },
-      {
-        "id": "REQ-29",
-        "summary": "Audit the TanStack Router and React Query initialization in App.tsx: ensure the router is fully initialized before any route rendering begins, that all query hooks have defined fallback states (isLoading, isError) handled before returning JSX, and that no query result is destructured or accessed before it is confirmed non-null. Fix any race conditions between the Internet Identity auth state resolving and the router attempting to render protected routes.",
+        "id": "REQ-30",
+        "summary": "In App.tsx, audit the Root Admin bypass code path specifically for the email 'graph.dust@gmail.com'. The blank page occurs only for this account while other accounts render correctly, indicating the root admin conditional branch either throws an unhandled error, enters an infinite loading state, or renders null/undefined. Trace the execution path after the root admin email check: ensure the user profile query result is confirmed non-null before any property access, that the root admin branch does not depend on isApproved being true before proceeding, and that no missing or undefined variable causes a silent crash. Add console logging or guard clauses to ensure this path always resolves to rendering the main app layout.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/App.tsx"
@@ -46,33 +20,36 @@
         "matchedFiles": [
           "frontend/src/App.tsx"
         ]
+      },
+      {
+        "id": "REQ-31",
+        "summary": "In App.tsx, ensure that the root admin bypass check for 'graph.dust@gmail.com' is structurally isolated from the isApproved gate and the profile-null guard. Specifically: (1) evaluate the email check against the identity/profile only after the profile query has settled (not during loading), (2) if the profile query returns null/undefined for the root admin, synthesize a minimal fallback user object with role = #rootAdmin and isApproved = true so the render path is never blocked, (3) never allow the root admin code path to fall through to the WaitingForApproval or ProfileSetup branches.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/App.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/App.tsx"
+        ]
+      },
+      {
+        "id": "REQ-32",
+        "summary": "In the backend (main.mo), add a guard at the entry point of getMyProfile (and any equivalent profile-fetch function) so that if the caller's email is exactly 'graph.dust@gmail.com' and their record is missing or has isApproved = false or role != #rootAdmin, the record is created or updated to isApproved = true and role = #rootAdmin before returning. This ensures the frontend never receives a null, unapproved, or low-privilege profile for the root admin on any query.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
     "build-request.json",
-    "build-template/README.md",
-    "caffeine.lock.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
     "frontend/src/App.tsx",
-    "frontend/src/components/ErrorBoundary.tsx",
     "frontend/src/components/ProfileSetupModal.tsx",
-    "frontend/src/components/WaitingForApproval.tsx",
-    "frontend/src/components/auth/SignupForm.tsx",
-    "frontend/src/components/events/CreateEventForm.tsx",
-    "frontend/src/components/feed/CreatePostForm.tsx",
-    "frontend/src/components/feed/PendingApprovals.tsx",
-    "frontend/src/components/layout/MainLayout.tsx",
-    "frontend/src/hooks/useQueries.ts",
-    "frontend/src/lib/utils.ts",
-    "frontend/src/pages/AuthPage.tsx",
-    "frontend/src/pages/ChapterGrowthPage.tsx",
-    "frontend/src/pages/EventsPage.tsx",
-    "frontend/src/pages/FeedPage.tsx",
-    "frontend/src/pages/ProfilePage.tsx",
-    "frontend/src/pages/ProfileSetupPage.tsx",
+    "frontend/src/declarations/backend.did.js",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",
