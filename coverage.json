@@ -1,53 +1,73 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-25T14:43:56.024Z",
+  "generatedAt": "2026-02-26T06:38:11.826Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 1,
-    "implemented": 1,
+    "total": 3,
+    "implemented": 3,
     "items": [
       {
-        "id": "REQ-12",
-        "summary": "Re-attempt the previous build and deployment. No code changes are required — this is a retry of the last failed deployment due to a transient technical error.",
+        "id": "REQ-27",
+        "summary": "Diagnose and fix the blank page that appears after the AnthroVerse loading/splash screen. Audit App.tsx for any unhandled promise rejections, missing null checks on actor or user profile queries, or router initialization errors that would cause the app to silently fail and render nothing after the splash. Add defensive fallbacks (e.g., error boundaries, loading fallback states) so the app always progresses to either the auth page or the main layout regardless of backend query failures.",
         "status": "implemented",
         "plannedFiles": [
           "frontend/src/App.tsx",
-          "frontend/src/main.tsx",
-          "frontend/src/pages/FeedPage.tsx",
-          "frontend/src/pages/EventsPage.tsx",
-          "frontend/src/pages/ProfilePage.tsx",
-          "frontend/src/pages/AdminPage.tsx",
-          "frontend/src/components/AppSidebar.tsx",
-          "frontend/src/components/AppHeader.tsx"
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/main.tsx"
         ],
         "matchedFiles": [
           "frontend/src/App.tsx",
-          "frontend/src/pages/FeedPage.tsx",
-          "frontend/src/pages/EventsPage.tsx",
-          "frontend/src/pages/ProfilePage.tsx",
-          "frontend/src/pages/AdminPage.tsx",
-          "frontend/src/components/AppSidebar.tsx",
-          "frontend/src/components/AppHeader.tsx"
+          "frontend/src/hooks/useQueries.ts"
+        ]
+      },
+      {
+        "id": "REQ-28",
+        "summary": "Add a top-level React error boundary component wrapping the entire App tree. If any component in the tree throws during render or in a lifecycle, display a minimal recovery UI (e.g., 'Something went wrong — please refresh') instead of a blank page. This must not affect the immutable files under frontend/src/hooks/ or frontend/src/components/ui.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/ErrorBoundary.tsx",
+          "frontend/src/main.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/ErrorBoundary.tsx"
+        ]
+      },
+      {
+        "id": "REQ-29",
+        "summary": "Audit the TanStack Router and React Query initialization in App.tsx: ensure the router is fully initialized before any route rendering begins, that all query hooks have defined fallback states (isLoading, isError) handled before returning JSX, and that no query result is destructured or accessed before it is confirmed non-null. Fix any race conditions between the Internet Identity auth state resolving and the router attempting to render protected routes.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/App.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/App.tsx"
         ]
       }
     ]
   },
   "changedFiles": [
-    "backend/main.mo",
     "build-request.json",
+    "build-template/README.md",
+    "caffeine.lock.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
     "frontend/src/App.tsx",
-    "frontend/src/components/AppHeader.tsx",
-    "frontend/src/components/AppSidebar.tsx",
+    "frontend/src/components/ErrorBoundary.tsx",
+    "frontend/src/components/ProfileSetupModal.tsx",
+    "frontend/src/components/WaitingForApproval.tsx",
     "frontend/src/components/auth/SignupForm.tsx",
+    "frontend/src/components/events/CreateEventForm.tsx",
+    "frontend/src/components/feed/CreatePostForm.tsx",
+    "frontend/src/components/feed/PendingApprovals.tsx",
+    "frontend/src/components/layout/MainLayout.tsx",
     "frontend/src/hooks/useQueries.ts",
-    "frontend/src/pages/AdminPage.tsx",
+    "frontend/src/lib/utils.ts",
+    "frontend/src/pages/AuthPage.tsx",
     "frontend/src/pages/ChapterGrowthPage.tsx",
     "frontend/src/pages/EventsPage.tsx",
     "frontend/src/pages/FeedPage.tsx",

@@ -1,44 +1,41 @@
-import React, { useState, useRef } from 'react';
+import { useState } from 'react';
+import { useSubmitPost, useGetCallerUserProfile } from '../../hooks/useQueries';
 import { PostCategory } from '../../backend';
-import { ExternalBlob } from '../../backend';
-import { useGetCallerUserProfile, useSubmitPost } from '../../hooks/useQueries';
 import { canPostAnnouncement } from '../../utils/permissions';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
-import { Image, X, Loader2, Send } from 'lucide-react';
-import { toast } from 'sonner';
+import { ExternalBlob } from '../../backend';
+import { ImagePlus, X, Send } from 'lucide-react';
 
 interface CreatePostFormProps {
   defaultCategory?: PostCategory;
   onSuccess?: () => void;
 }
 
-const PUBLIC_CATEGORIES = [
-  { value: PostCategory.general, label: 'General' },
-  { value: PostCategory.fun, label: 'Fun' },
-  { value: PostCategory.requirements, label: 'Requirements' },
-];
-
-const ANNOUNCEMENT_CATEGORY = { value: PostCategory.announcements, label: 'Announcement' };
+const CATEGORY_LABELS: Record<PostCategory, string> = {
+  [PostCategory.general]: 'General',
+  [PostCategory.fun]: 'Fun',
+  [PostCategory.requirements]: 'Requirements',
+  [PostCategory.announcements]: 'Announcements',
+  [PostCategory.leadershipTeam]: 'Leadership Team',
+  [PostCategory.membershipCommittee]: 'Membership Committee',
+  [PostCategory.coreTeam]: 'Core Team',
+};
 
 export default function CreatePostForm({ defaultCategory, onSuccess }: CreatePostFormProps) {
-  const { data: profile } = useGetCallerUserProfile();
-  const submitPost = useSubmitPost();
+  const { data: userProfile } = useGetCallerUserProfile();
   const [content, setContent] = useState('');
-  const [category, setCategory] = useState<PostCategory>(defaultCategory || PostCategory.general);
+  const [category, setCategory] = useState<PostCategory>(defaultCategory ?? PostCategory.general);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const submitPost = useSubmitPost();
 
-  const canAnnounce = profile && canPostAnnouncement(profile.role);
+  const userRole = userProfile?.role;
 
-  const availableCategories = [
-    ...PUBLIC_CATEGORIES,
-    ...(canAnnounce ? [ANNOUNCEMENT_CATEGORY] : []),
-  ];
+  const availableCategories = Object.values(PostCategory).filter(cat => {
+    if (cat === PostCategory.announcements) {
+      return userRole && canPostAnnouncement(userRole);
+    }
+    return true;
+  });
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -53,92 +50,71 @@ export default function CreatePostForm({ defaultCategory, onSuccess }: CreatePos
     e.preventDefault();
     if (!content.trim()) return;
 
-    try {
-      let imageBlob: ExternalBlob | null = null;
-      if (imageFile) {
-        const arrayBuffer = await imageFile.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        imageBlob = ExternalBlob.fromBytes(bytes).withUploadProgress(pct => setUploadProgress(pct));
-      }
-
-      await submitPost.mutateAsync({ category, content: content.trim(), image: imageBlob });
-      setContent('');
-      setImageFile(null);
-      setImagePreview(null);
-      setUploadProgress(0);
-      toast.success('Post created successfully!');
-      onSuccess?.();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to create post';
-      toast.error(msg);
+    let imageBlob: ExternalBlob | null = null;
+    if (imageFile) {
+      const bytes = new Uint8Array(await imageFile.arrayBuffer());
+      imageBlob = ExternalBlob.fromBytes(bytes as Uint8Array<ArrayBuffer>);
     }
+
+    await submitPost.mutateAsync({ category, content: content.trim(), image: imageBlob });
+    setContent('');
+    setImageFile(null);
+    setImagePreview(null);
+    onSuccess?.();
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-card rounded-xl border border-border p-4 space-y-3">
-      <div className="flex items-center gap-3">
-        <Select value={category} onValueChange={v => setCategory(v as PostCategory)}>
-          <SelectTrigger className="w-44 h-8 text-xs rounded-lg">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {availableCategories.map(cat => (
-              <SelectItem key={cat.value} value={cat.value} className="text-xs">
-                {cat.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+    <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-4 space-y-3">
+      <div className="flex items-start gap-3">
+        <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+          {userProfile?.name?.charAt(0)?.toUpperCase() ?? '?'}
+        </div>
+        <textarea
+          value={content}
+          onChange={e => setContent(e.target.value)}
+          placeholder="Share something with the community…"
+          rows={3}
+          className="flex-1 resize-none bg-transparent text-foreground placeholder:text-muted-foreground text-sm focus:outline-none"
+        />
       </div>
 
-      <Textarea
-        value={content}
-        onChange={e => setContent(e.target.value)}
-        placeholder="What's on your mind?"
-        className="min-h-[80px] resize-none rounded-lg text-sm"
-      />
-
       {imagePreview && (
-        <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-muted">
-          <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+        <div className="relative inline-block">
+          <img src={imagePreview} alt="Preview" className="max-h-40 rounded-lg object-cover" />
           <button
             type="button"
             onClick={() => { setImageFile(null); setImagePreview(null); }}
-            className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+            className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5 hover:bg-black/80"
           >
-            <X size={12} />
+            <X className="w-3 h-3" />
           </button>
         </div>
       )}
 
-      {submitPost.isPending && uploadProgress > 0 && (
-        <Progress value={uploadProgress} className="h-1" />
-      )}
-
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
+        <div className="flex items-center gap-2">
+          <select
+            value={category}
+            onChange={e => setCategory(e.target.value as PostCategory)}
+            className="text-xs bg-muted text-foreground border border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+          >
+            {availableCategories.map(cat => (
+              <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
+            ))}
+          </select>
+          <label className="cursor-pointer p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
+            <ImagePlus className="w-4 h-4" />
+            <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+          </label>
+        </div>
         <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Image size={14} />
-          Add Image
-        </button>
-        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-
-        <Button
           type="submit"
-          size="sm"
           disabled={!content.trim() || submitPost.isPending}
-          className="h-8 px-4 text-xs font-semibold"
+          className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
-          {submitPost.isPending ? (
-            <Loader2 size={12} className="animate-spin mr-1" />
-          ) : (
-            <Send size={12} className="mr-1" />
-          )}
-          Post
-        </Button>
+          <Send className="w-3.5 h-3.5" />
+          {submitPost.isPending ? 'Posting…' : 'Post'}
+        </button>
       </div>
     </form>
   );

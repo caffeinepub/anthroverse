@@ -1,20 +1,23 @@
 {
   "schemaVersion": "1.0.0",
-  "projectStateVersion": 9,
-  "summary": "AnthroVerse is a private, members-only mobile app (Android + iOS) built with Flutter and Firebase for the Anthropos chapter. It features a permanent Root Admin account (graph.dust@gmail.com) with full system override authority outside the tenure cycle. Role-based governance includes 8 roles (Root Admin, President, VP, Secretary Treasurer, LT, MC, ELT, Member). Auth uses email/password signup with profile photo; new users get isApproved=false and role=Member. Approval is restricted to Root Admin, President, VP, and ST. The community feed supports 4 categories with an announcement approval workflow (MC/ELT submit as Pending; President/VP/ST/Root Admin approve). Chapter Growth module is restricted to all leadership roles (not plain Members). Events can be created by President/VP/ST/LT/Root Admin; MC/ELT submit for approval. Payment tracking (isPaid toggle) is restricted to Root Admin, President, VP, and ST — LT cannot mark payments. UI uses a Purple Edition design system (Primary Purple #4C1D95, Violet #7C3AED, Teal #00B3A4, Gold #C9A227) with Poppins/Inter typography, dark mode (#1E1B2E background), and premium private club aesthetic. All permissions enforced at Firestore security rules and Cloud Functions level.",
+  "projectStateVersion": 17,
+  "summary": "AnthroVerse is a private, members-only mobile app (Android + iOS) built with Flutter and Firebase for the Anthropos chapter. It features a permanent Root Admin account (graph.dust@gmail.com) with full system override authority outside the tenure cycle. Role-based governance includes 8 roles (Root Admin, President, VP, Secretary Treasurer, LT, MC, ELT, Member) plus dynamic sub-roles (e.g., Events Head, Growth Head, Creative Lead). Role creation: Root Admin can create/delete any role; President creates main/sub roles; VP creates MC sub-roles; ST creates event sub-roles. Auth uses email/password signup with profile photo; new users get isApproved=false and role=Member. Approval restricted to Root Admin, President, VP, and ST. The community feed supports 4 categories with announcement approval workflow (MC/ELT submit as Pending; President/VP/ST/Root Admin approve; President can publish announcements directly). Chapter Growth module is restricted to leadership roles (not plain Members) and includes Leadership Team, Membership Committee, Core Committee, Event Teams, and Custom groups. Events can be created directly by Root Admin/President/VP/ST; LT/MC/ELT/sub-role members submit with Pending status for approval. Payment tracking (isPaid toggle) restricted to Root Admin, President, VP, and ST. Database includes Roles and Groups collections in addition to Users, Posts, Comments, Events, Registrations, Tenures. UI uses Purple Edition design system (Primary Purple #4C1D95, Violet #7C3AED, Teal #00B3A4, Gold #C9A227) with Poppins/Inter typography, dark mode (#1E1B2E background), and premium private club aesthetic. All permissions enforced at Firestore security rules and Cloud Functions level.",
   "architectural_notes": [
     "Stack: Flutter (Android + iOS), Firebase Auth, Firestore, Storage, Cloud Functions",
     "Role hierarchy: President > VP > ST > LT > MC/ELT > Member; roles stored on Firestore user document",
     "All new users created with isApproved=false and role=Member; access gated until admin approval",
-    "Announcement posts by MC/ELT use status=Pending until LT approves (status=Published); only published visible to members",
     "Tenure automation uses Cloud Functions for batch role revocation and reassignment on bi-annual cycle",
     "Chapter Growth module access enforced at both Firestore security rules and UI routing level",
     "Root Admin (graph.dust@gmail.com) is a permanent account stored with role=RootAdmin; excluded from tenure reset Cloud Function batch; all Firestore rules grant full override to this UID",
     "Payment isPaid toggle restricted to Root Admin, President, VP, ST at Firestore rule level — LT role explicitly denied write access to isPaid field",
-    "Event approval workflow mirrors announcement workflow: MC/ELT submit with status=Pending; President/VP/ST/Root Admin approve; push notification sent on approval"
+    "Event approval workflow mirrors announcement workflow: MC/ELT submit with status=Pending; President/VP/ST/Root Admin approve; push notification sent on approval",
+    "Dynamic role system: Roles collection stores main roles and sub-roles; Root Admin/President/VP/ST have scoped role creation authority; all role actions logged in Firestore",
+    "Groups collection stores Chapter Growth private groups (Leadership Team, Membership Committee, Core Committee, Event Teams, Custom); each document references allowed roles for visibility"
   ],
   "known_issues": [
-    "Root Admin (graph.dust@gmail.com) is being prompted for approval on login instead of bypassing the approval gate — fix pending"
+    "Root Admin (graph.dust@gmail.com) is being prompted for approval on login instead of bypassing the approval gate — fix pending",
+    "Root Admin (graph.dust@gmail.com) displays as 'Member' role instead of admin/root admin role in the UI — role display fix pending",
+    "App shows blank page after AnthroVerse loading screen — app fails to progress past the initial splash/loading screen"
   ],
   "isFixRequest": true,
   "existing_features": [
@@ -103,6 +106,54 @@
       "title": "Re-attempt the previous build and deployment. No code changes are required — this is a retry of the last failed deployment due to a transient technical error.",
       "reqIds": [
         "REQ-12"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-frontend-app-tsx-authentication-and-approval-gate-add-a-root-admin-bypass-check-that-runs-before-the-isapproved-gate-if-the-currently-authenticated-user-s-email-is-exactly-graph-dust-gmail-com-skip-the-waiting-for-approval-screen-entirely-and-route-them-directly-to-the-main-app-additionally-ensure-the-role-badge-and-sidebar-for-this-user-reflect-the-root-admin-role-not-member-by-re-fetching-or-re-evaluating-the-user-profile-after-login",
+      "title": "In the frontend App.tsx authentication and approval gate, add a root admin bypass check that runs before the isApproved gate: if the currently authenticated user's email is exactly 'graph.dust@gmail.com', skip the Waiting for Approval screen entirely and route them directly to the main app. Additionally, ensure the role badge and sidebar for this user reflect the root admin role (not 'Member'), by re-fetching or re-evaluating the user profile after login.",
+      "reqIds": [
+        "REQ-14"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-in-the-frontend-fix-the-role-badge-and-sidebar-so-that-when-the-authenticated-user-s-email-is-exactly-graph-dust-gmail-com-the-displayed-role-is-always-root-admin-not-member-or-any-other-role-the-fix-must-apply-in-appsidebar-rolebadge-and-any-other-component-that-renders-the-user-s-role-label-after-login-re-fetch-the-user-profile-before-evaluating-the-role-display-so-the-most-up-to-date-role-from-the-backend-is-used",
+      "title": "In the frontend, fix the role badge and sidebar so that when the authenticated user's email is exactly 'graph.dust@gmail.com', the displayed role is always 'Root Admin' (not 'Member' or any other role). The fix must apply in AppSidebar, RoleBadge, and any other component that renders the user's role label. After login, re-fetch the user profile before evaluating the role display so the most up-to-date role from the backend is used.",
+      "reqIds": [
+        "REQ-16"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-ensure-that-the-root-admin-graph-dust-gmail-com-has-full-authority-to-assign-and-change-roles-for-any-user-approve-or-reject-user-registrations-approve-announcements-and-events-create-and-manage-posts-in-all-categories-and-toggle-ispaid-on-event-registrations-all-permission-check-utilities-utils-permissions-ts-lib-utils-ts-must-treat-the-rootadmin-role-as-having-every-permission-that-exists-in-the-system-with-no-restrictions",
+      "title": "Ensure that the Root Admin (graph.dust@gmail.com) has full authority to assign and change roles for any user, approve or reject user registrations, approve announcements and events, create and manage posts in all categories, and toggle isPaid on event registrations. All permission-check utilities (utils/permissions.ts, lib/utils.ts) must treat the #rootAdmin role as having every permission that exists in the system, with no restrictions.",
+      "reqIds": [
+        "REQ-17"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-diagnose-and-fix-the-blank-page-that-appears-after-the-anthroverse-loading-splash-screen-audit-app-tsx-for-any-unhandled-promise-rejections-missing-null-checks-on-actor-or-user-profile-queries-or-router-initialization-errors-that-would-cause-the-app-to-silently-fail-and-render-nothing-after-the-splash-add-defensive-fallbacks-e-g-error-boundaries-loading-fallback-states-so-the-app-always-progresses-to-either-the-auth-page-or-the-main-layout-regardless-of-backend-query-failures",
+      "title": "Diagnose and fix the blank page that appears after the AnthroVerse loading/splash screen. Audit App.tsx for any unhandled promise rejections, missing null checks on actor or user profile queries, or router initialization errors that would cause the app to silently fail and render nothing after the splash. Add defensive fallbacks (e.g., error boundaries, loading fallback states) so the app always progresses to either the auth page or the main layout regardless of backend query failures.",
+      "reqIds": [
+        "REQ-27"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-top-level-react-error-boundary-component-wrapping-the-entire-app-tree-if-any-component-in-the-tree-throws-during-render-or-in-a-lifecycle-display-a-minimal-recovery-ui-e-g-something-went-wrong-please-refresh-instead-of-a-blank-page-this-must-not-affect-the-immutable-files-under-frontend-src-hooks-or-frontend-src-components-ui",
+      "title": "Add a top-level React error boundary component wrapping the entire App tree. If any component in the tree throws during render or in a lifecycle, display a minimal recovery UI (e.g., 'Something went wrong — please refresh') instead of a blank page. This must not affect the immutable files under frontend/src/hooks/ or frontend/src/components/ui.",
+      "reqIds": [
+        "REQ-28"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-audit-the-tanstack-router-and-react-query-initialization-in-app-tsx-ensure-the-router-is-fully-initialized-before-any-route-rendering-begins-that-all-query-hooks-have-defined-fallback-states-isloading-iserror-handled-before-returning-jsx-and-that-no-query-result-is-destructured-or-accessed-before-it-is-confirmed-non-null-fix-any-race-conditions-between-the-internet-identity-auth-state-resolving-and-the-router-attempting-to-render-protected-routes",
+      "title": "Audit the TanStack Router and React Query initialization in App.tsx: ensure the router is fully initialized before any route rendering begins, that all query hooks have defined fallback states (isLoading, isError) handled before returning JSX, and that no query result is destructured or accessed before it is confirmed non-null. Fix any race conditions between the Internet Identity auth state resolving and the router attempting to render protected routes.",
+      "reqIds": [
+        "REQ-29"
       ],
       "version": 1
     }
@@ -197,6 +248,124 @@
       "summary": "In the backend, when a user registers or logs in with the email 'graph.dust@gmail.com', automatically set their record to isApproved = true and role = RootAdmin (or the highest admin role) without requiring manual approval. If the user record already exists with isApproved = false, update it to isApproved = true upon their next authenticated call.",
       "reqIds": [
         "REQ-10"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-16",
+      "summary": "In the backend (main.mo), when any authenticated call is made by a user whose email is 'graph.dust@gmail.com', automatically ensure their user record has isApproved = true and role = #rootAdmin (or the highest admin role variant). If the record does not exist yet, create it with those values. If the record exists with isApproved = false or a lower role, update it immediately upon the next authenticated call before returning any user data.",
+      "reqIds": [
+        "REQ-13"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-17",
+      "summary": "In the backend (main.mo), ensure that any authenticated call made by the user whose email is 'graph.dust@gmail.com' always returns a user record with role = #rootAdmin and isApproved = true. If the record does not yet exist, create it with those values. If the record exists with any other role or with isApproved = false, update it immediately before returning any user data. This logic must run at the start of every authenticated query and update call that reads or returns the caller's profile.",
+      "reqIds": [
+        "REQ-15"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-18",
+      "summary": "Dynamic Role Creation System: Root Admin can create/delete any main or sub-role; President can create main and sub roles; VP can create MC sub-roles; ST can create event-related sub-roles. All role actions logged in Firestore. Roles and sub-roles stored in a dedicated Roles collection.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-19",
+      "summary": "Chapter Growth Module expansion: add Core Committee, Event Teams, and Custom (role-based) groups in addition to existing Leadership Team and Membership Committee groups. Each group supports private posts, file uploads, comments, and role-based visibility.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-20",
+      "summary": "Roles and Groups Firestore collections: add dedicated Roles collection (main roles + sub-roles) and Groups collection for Chapter Growth private groups, with document references and role-based access control.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-21",
+      "summary": "Tenure reset must revoke sub-roles in addition to main roles (President, VP, ST, LT, MC, ELT). Sub-role members' permissions reset to Member level when new tenure is started.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-22",
+      "summary": "Event approval notification: push notification must be sent to relevant parties when an event is approved (in addition to existing event created notification).",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-23",
+      "summary": "In the backend (main.mo), ensure the root admin auto-promotion logic runs at the entry point of every authenticated call: if the caller's email is exactly 'graph.dust@gmail.com', immediately set their user record to role = #rootAdmin and isApproved = true before any other logic executes. Create the record with those values if it does not yet exist.",
+      "reqIds": [
+        "REQ-18"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-24",
+      "summary": "In the frontend, apply a comprehensive root admin display fix: wherever user role is rendered (AppSidebar, RoleBadge, ProfilePage, AdminPage, and any other component), if the authenticated user's email is exactly 'graph.dust@gmail.com', always display the role label as 'Root Admin' and apply the root admin badge style, regardless of what the backend record currently returns. Additionally, skip the isApproved gate for this email before any other approval check.",
+      "reqIds": [
+        "REQ-19"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-25",
+      "summary": "Ensure all permission-check utility functions in frontend/src/utils/permissions.ts and frontend/src/lib/utils.ts treat #rootAdmin as having every permission in the system with no exceptions: canCreatePost, canApprovePost, canDeleteAnyPost, canApproveUsers, canAssignRoles, canMarkPayment, canCreateEvent, canApproveEvent, canStartTenure, and any other permission function must return true when the role is #rootAdmin.",
+      "reqIds": [
+        "REQ-20"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-26",
+      "summary": "Implement a dynamic Role Creation System in the backend: add a Roles collection (or equivalent stable map in main.mo) that stores main roles and sub-roles. Expose CRUD endpoints — createRole, deleteRole, assignRoleToUser, revokeRoleFromUser — with the following permission gates: Root Admin may call any endpoint; President may create/delete main and sub roles; Vice President may create/delete MC sub-roles only; Secretary Treasurer may create/delete event-related sub-roles only. Log every role action with actor principal, target user, role name, action type, and timestamp.",
+      "reqIds": [
+        "REQ-21"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-27",
+      "summary": "Expand the frontend Admin panel to include a Role Management tab where authorised users (Root Admin, President, VP within MC scope, ST within Events scope) can create new main roles or sub-roles, view existing roles, assign a role to a user, and delete a role. The tab must be hidden from users without role-creation permissions.",
+      "reqIds": [
+        "REQ-22"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-28",
+      "summary": "Expand the Chapter Growth module to include five private group feeds: Leadership Team, Membership Committee, Core Committee, Event Teams, and Custom (role-based) groups. Each group must enforce role-based visibility so only members with the matching role can view and post. Each group supports private posts with text and file attachments, comments on posts, and a post list with loading states.",
+      "reqIds": [
+        "REQ-23"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-29",
+      "summary": "Update the Tenure Automation system so that when 'Start New Tenure' is triggered, all sub-roles (in addition to President, VP, ST, LT, MC, ELT main roles) are revoked and every affected user is reset to the Member role. The Root Admin role must remain completely unaffected.",
+      "reqIds": [
+        "REQ-24"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-30",
+      "summary": "Implement an event approval workflow in the backend and frontend: when a user with role LT, MC, ELT, or a sub-role submits an event, set its status to 'Pending'. Only Root Admin, President, VP, and ST can approve the event (set status to 'Approved'). Only Approved events are returned by the public event listing endpoint. An in-app notification must be sent to relevant parties when an event is approved.",
+      "reqIds": [
+        "REQ-25"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-31",
+      "summary": "Restrict payment tracking in the Events module: only Root Admin, President, Vice President, and Secretary Treasurer may toggle isPaid = true on any event registration. LT, MC, ELT, and plain Members must not see the isPaid toggle control and must receive an error if they attempt the backend call directly. The paid status column in the registration list must be hidden for unauthorised roles.",
+      "reqIds": [
+        "REQ-26"
       ],
       "status": "pending"
     }

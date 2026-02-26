@@ -1,31 +1,75 @@
 {
   "kind": "build_request",
-  "title": "Retry last failed deployment",
+  "title": "Fix blank page after AnthroVerse loading screen",
+  "projectName": "AnthroVerse",
   "priority": "high",
   "requirements": [
     {
-      "id": "REQ-12",
-      "text": "Re-attempt the previous build and deployment. No code changes are required — this is a retry of the last failed deployment due to a transient technical error.",
-      "target": "both",
+      "id": "REQ-27",
+      "text": "Diagnose and fix the blank page that appears after the AnthroVerse loading/splash screen. Audit App.tsx for any unhandled promise rejections, missing null checks on actor or user profile queries, or router initialization errors that would cause the app to silently fail and render nothing after the splash. Add defensive fallbacks (e.g., error boundaries, loading fallback states) so the app always progresses to either the auth page or the main layout regardless of backend query failures.",
+      "target": "frontend",
       "source": {
         "messageIds": [
           "msg-1"
         ],
         "quotes": [
-          "try again"
+          "It is not getting past Anthroverse loading. Just blank page"
         ]
       },
       "acceptanceCriteria": [
-        "The application builds successfully without errors.",
-        "The deployed app is accessible and all previously implemented features remain functional."
+        "After the AnthroVerse loading screen completes, the app always renders either the authentication page or the main app layout — never a blank white/dark screen.",
+        "If the backend actor is unavailable or returns an error during initial load, the app falls back gracefully to the auth/login page rather than hanging or going blank.",
+        "If the user profile query fails or returns null/undefined, the app does not crash silently — it renders an appropriate fallback UI.",
+        "Any unhandled promise rejections or thrown errors during initialization are caught by an error boundary or try/catch and result in a visible error state rather than a blank page.",
+        "The root admin user (graph.dust@gmail.com) can also progress past the loading screen without hitting a blank page."
+      ]
+    },
+    {
+      "id": "REQ-28",
+      "text": "Add a top-level React error boundary component wrapping the entire App tree. If any component in the tree throws during render or in a lifecycle, display a minimal recovery UI (e.g., 'Something went wrong — please refresh') instead of a blank page. This must not affect the immutable files under frontend/src/hooks/ or frontend/src/components/ui.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "It is not getting past Anthroverse loading. Just blank page"
+        ]
+      },
+      "acceptanceCriteria": [
+        "A React ErrorBoundary component is present and wraps the root App component in main.tsx or equivalent non-immutable entry point.",
+        "When a render error is thrown anywhere in the tree, the boundary catches it and displays a user-friendly recovery message instead of a blank page.",
+        "The error boundary does not modify any files listed in frontend.immutablePaths."
+      ]
+    },
+    {
+      "id": "REQ-29",
+      "text": "Audit the TanStack Router and React Query initialization in App.tsx: ensure the router is fully initialized before any route rendering begins, that all query hooks have defined fallback states (isLoading, isError) handled before returning JSX, and that no query result is destructured or accessed before it is confirmed non-null. Fix any race conditions between the Internet Identity auth state resolving and the router attempting to render protected routes.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "It is not getting past Anthroverse loading. Just blank page"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The router does not attempt to render any authenticated route before the Internet Identity auth state has resolved.",
+        "All useQuery hooks used in App.tsx or the root layout handle isLoading and isError states explicitly — no component renders JSX that accesses undefined data.",
+        "The app reliably transitions from the loading screen to a visible page (auth or main) on every page load/refresh, with no blank screen regression."
       ]
     }
   ],
   "constraints": [
-    "Do not introduce any new features or code changes — this is a pure retry of the last deployment."
+    "Do not modify any files under frontend/src/hooks/ (useInternetIdentity.ts, useActor.ts) or frontend/src/components/ui — these are immutable.",
+    "Do not change the backend schema or Motoko actor logic unless a backend bug is confirmed to be the direct cause of the blank screen."
   ],
   "nonGoals": [
-    "No new features, bug fixes, or refactors beyond what was already implemented."
+    "Adding new features or pages.",
+    "Changing the visual design or theme.",
+    "Modifying authentication flow beyond fixing initialization race conditions.",
+    "Any backend changes unless a specific backend bug is identified as the root cause."
   ],
   "imageRequirements": {
     "required": [],

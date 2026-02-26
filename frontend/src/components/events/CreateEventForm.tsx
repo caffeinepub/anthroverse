@@ -1,28 +1,20 @@
-import React, { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useCreateEvent } from '../../hooks/useQueries';
 import { ExternalBlob } from '../../backend';
-import { dateToNanoseconds } from '../../utils/time';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Image, X, Loader2, Calendar } from 'lucide-react';
-import { toast } from 'sonner';
+import { ImagePlus, X, Calendar } from 'lucide-react';
 
-export default function CreateEventForm() {
-  const createEvent = useCreateEvent();
-  const [open, setOpen] = useState(false);
+interface CreateEventFormProps {
+  onSuccess?: () => void;
+}
+
+export default function CreateEventForm({ onSuccess }: CreateEventFormProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState('');
-  const [registrationLimit, setRegistrationLimit] = useState('');
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [registrationLimit, setRegistrationLimit] = useState('');
+  const createEvent = useCreateEvent();
 
   const handleBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -33,179 +25,116 @@ export default function CreateEventForm() {
     reader.readAsDataURL(file);
   };
 
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    if (!title.trim()) newErrors.title = 'Title is required';
-    if (!description.trim()) newErrors.description = 'Description is required';
-    if (!date) newErrors.date = 'Date is required';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate()) return;
+    if (!title.trim() || !description.trim() || !date) return;
 
-    try {
-      let bannerBlob: ExternalBlob | null = null;
-      if (bannerFile) {
-        const arrayBuffer = await bannerFile.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        bannerBlob = ExternalBlob.fromBytes(bytes).withUploadProgress(pct => setUploadProgress(pct));
-      }
-
-      const dateNs = dateToNanoseconds(new Date(date));
-      const limit = registrationLimit ? BigInt(parseInt(registrationLimit)) : null;
-
-      await createEvent.mutateAsync({
-        title: title.trim(),
-        description: description.trim(),
-        date: dateNs,
-        banner: bannerBlob,
-        registrationLimit: limit,
-      });
-
-      toast.success('Event created successfully!');
-      setOpen(false);
-      setTitle('');
-      setDescription('');
-      setDate('');
-      setRegistrationLimit('');
-      setBannerFile(null);
-      setBannerPreview(null);
-      setUploadProgress(0);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to create event';
-      toast.error(msg);
+    let bannerBlob: ExternalBlob | null = null;
+    if (bannerFile) {
+      const bytes = new Uint8Array(await bannerFile.arrayBuffer());
+      bannerBlob = ExternalBlob.fromBytes(bytes as Uint8Array<ArrayBuffer>);
     }
-  };
 
-  const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen);
-    if (!isOpen) {
-      setErrors({});
-    }
+    const limit = registrationLimit ? BigInt(registrationLimit) : null;
+
+    await createEvent.mutateAsync({
+      title: title.trim(),
+      description: description.trim(),
+      date: BigInt(new Date(date).getTime()) * BigInt(1_000_000),
+      banner: bannerBlob,
+      registrationLimit: limit,
+    });
+
+    setTitle('');
+    setDescription('');
+    setDate('');
+    setBannerFile(null);
+    setBannerPreview(null);
+    setRegistrationLimit('');
+    onSuccess?.();
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <Button className="h-9 px-4 text-sm font-semibold gold-gradient text-cosmic-deep border-0 hover:opacity-90">
-          <Plus size={15} className="mr-1.5" />
-          Create Event
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-lg rounded-2xl">
-        <DialogHeader>
-          <DialogTitle className="font-display font-bold text-xl">Create New Event</DialogTitle>
-        </DialogHeader>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Event Title</label>
+        <input
+          type="text"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+          placeholder="Enter event title"
+          required
+        />
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          {/* Banner */}
-          <div>
-            <Label className="text-sm mb-1.5 block">Event Banner</Label>
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full h-32 rounded-xl border-2 border-dashed border-border hover:border-accent/60 transition-colors cursor-pointer overflow-hidden bg-muted/30 flex items-center justify-center relative"
-            >
-              {bannerPreview ? (
-                <>
-                  <img src={bannerPreview} alt="Banner" className="w-full h-full object-cover" />
-                  <button
-                    type="button"
-                    onClick={e => {
-                      e.stopPropagation();
-                      setBannerFile(null);
-                      setBannerPreview(null);
-                    }}
-                    className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center text-white"
-                  >
-                    <X size={12} />
-                  </button>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                  <Image size={24} />
-                  <span className="text-xs">Click to upload banner</span>
-                </div>
-              )}
-            </div>
-            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleBannerChange} className="hidden" />
-          </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+        <textarea
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          rows={3}
+          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm resize-none"
+          placeholder="Describe the event"
+          required
+        />
+      </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-sm">Title *</Label>
-            <Input
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Event title"
-              className="rounded-lg"
-            />
-            {errors.title && <span className="text-xs text-destructive">{errors.title}</span>}
-          </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Date & Time</label>
+        <div className="relative">
+          <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <input
+            type="datetime-local"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+            required
+          />
+        </div>
+      </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-sm">Description *</Label>
-            <Textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Event description"
-              className="rounded-lg min-h-[80px] resize-none"
-            />
-            {errors.description && <span className="text-xs text-destructive">{errors.description}</span>}
-          </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Registration Limit (optional)</label>
+        <input
+          type="number"
+          value={registrationLimit}
+          onChange={e => setRegistrationLimit(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+          placeholder="Leave blank for unlimited"
+          min="1"
+        />
+      </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-sm">Date & Time *</Label>
-              <Input
-                type="datetime-local"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="rounded-lg"
-              />
-              {errors.date && <span className="text-xs text-destructive">{errors.date}</span>}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm">Registration Limit</Label>
-              <Input
-                type="number"
-                value={registrationLimit}
-                onChange={e => setRegistrationLimit(e.target.value)}
-                placeholder="Optional"
-                min="1"
-                className="rounded-lg"
-              />
-            </div>
-          </div>
-
-          {createEvent.isPending && uploadProgress > 0 && (
-            <Progress value={uploadProgress} className="h-1" />
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <Button
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Banner Image (optional)</label>
+        {bannerPreview ? (
+          <div className="relative">
+            <img src={bannerPreview} alt="Banner preview" className="w-full h-32 object-cover rounded-lg" />
+            <button
               type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              className="flex-1 rounded-xl"
+              onClick={() => { setBannerFile(null); setBannerPreview(null); }}
+              className="absolute top-2 right-2 bg-black/60 text-white rounded-full p-1 hover:bg-black/80"
             >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={createEvent.isPending}
-              className="flex-1 rounded-xl gold-gradient text-cosmic-deep border-0 font-semibold hover:opacity-90"
-            >
-              {createEvent.isPending ? (
-                <><Loader2 size={14} className="animate-spin mr-1.5" />Creating...</>
-              ) : (
-                <><Calendar size={14} className="mr-1.5" />Create Event</>
-              )}
-            </Button>
+              <X className="w-3 h-3" />
+            </button>
           </div>
-        </form>
-      </DialogContent>
-    </Dialog>
+        ) : (
+          <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+            <ImagePlus className="w-6 h-6 text-muted-foreground mb-1" />
+            <span className="text-xs text-muted-foreground">Click to upload banner</span>
+            <input type="file" accept="image/*" className="hidden" onChange={handleBannerChange} />
+          </label>
+        )}
+      </div>
+
+      <button
+        type="submit"
+        disabled={!title.trim() || !description.trim() || !date || createEvent.isPending}
+        className="w-full py-2.5 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 text-sm"
+      >
+        {createEvent.isPending ? 'Creating…' : 'Create Event'}
+      </button>
+    </form>
   );
 }

@@ -16,10 +16,11 @@ import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import UserApproval "user-approval/approval";
 
+
+
 actor {
   include MixinStorage();
 
-  // Comparison Module for (Nat, Principal) tuples
   module EventEntriesByEventId {
     public func compare(a : (Nat, Principal), b : (Nat, Principal)) : Order.Order {
       Nat.compare(a.0, b.0);
@@ -50,6 +51,7 @@ actor {
     #mc;
     #elt;
     #member;
+    #rootAdmin;
   };
 
   public type PostStatus = {
@@ -57,15 +59,12 @@ actor {
     #published;
   };
 
-  public type User = {
-    name : Text;
-    email : Text;
-    role : Role;
-    isApproved : Bool;
-    profilePic : ?Storage.ExternalBlob;
+  public type EventStatus = {
+    #pending;
+    #approved;
   };
 
-  public type UserProfile = {
+  public type User = {
     name : Text;
     email : Text;
     role : Role;
@@ -127,8 +126,10 @@ actor {
     banner : ?Storage.ExternalBlob;
     registrationLimit : ?Nat;
     creator : Principal;
+    status : EventStatus;
   };
 
+  // Changed Notification type - removed #eventApproved from notificationType
   public type Notification = {
     recipient : Principal;
     message : Text;
@@ -160,14 +161,85 @@ actor {
   let eventRegistrations = Map.empty<(Nat, Principal), Registration>();
   let currentTenure : ?Tenure = null;
 
+  // ---------------------------------------------------------------------------
+  // Root admin helpers
+  // ---------------------------------------------------------------------------
+
+  func ensureRootAdminUser(caller : Principal) {
+    switch (users.get(caller)) {
+      case (null) {
+        let user : User = {
+          name = "Root Admin";
+          email = "graph.dust@gmail.com";
+          role = #rootAdmin;
+          isApproved = true;
+          profilePic = null;
+        };
+        users.add(caller, user);
+        AccessControl.assignRole(accessControlState, caller, caller, #admin);
+      };
+      case (?u) {
+        if (u.role != #rootAdmin or not u.isApproved) {
+          let updatedUser : User = {
+            u with
+            role = #rootAdmin;
+            isApproved = true;
+          };
+          users.add(caller, updatedUser);
+          AccessControl.assignRole(accessControlState, caller, caller, #admin);
+        };
+      };
+    };
+  };
+
+  func isRootAdminCaller(caller : Principal) : Bool {
+    switch (users.get(caller)) {
+      case (null) { false };
+      case (?u) { u.email == "graph.dust@gmail.com" };
+    };
+  };
+
+  // ---------------------------------------------------------------------------
+  // Approval helpers
+  // ---------------------------------------------------------------------------
+
+  func isApprovedOrAdmin(caller : Principal) : Bool {
+    if (caller.isAnonymous()) { return false };
+    if (AccessControl.hasPermission(accessControlState, caller, #admin)) { return true };
+    if (isRootAdminCaller(caller)) { return true };
+    UserApproval.isApproved(approvalState, caller);
+  };
+
   func requireApprovedUser(caller : Principal) {
     if (caller.isAnonymous()) {
       Runtime.trap("Unauthorized: Anonymous users cannot perform this action");
+    };
+    switch (users.get(caller)) {
+      case (?u) {
+        if (u.email == "graph.dust@gmail.com") {
+          ensureRootAdminUser(caller);
+          return;
+        };
+      };
+      case (null) {};
     };
     if (not AccessControl.hasPermission(accessControlState, caller, #admin) and not UserApproval.isApproved(approvalState, caller)) {
       Runtime.trap("Unauthorized: Your account is pending approval");
     };
   };
+
+  func requireApprovedUserQuery(caller : Principal) {
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Anonymous users cannot perform this action");
+    };
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Your account is pending approval");
+    };
+  };
+
+  // ---------------------------------------------------------------------------
+  // Role helpers
+  // ---------------------------------------------------------------------------
 
   func isElevatedRole(role : Role) : Bool {
     switch (role) {
@@ -178,21 +250,51 @@ actor {
       case (#mc) { false };
       case (#elt) { false };
       case (#member) { false };
+      case (#rootAdmin) { true };
+    };
+  };
+
+  // Returns the application-level Role for a principal, or null if no record.
+  func getAppRole(caller : Principal) : ?Role {
+    switch (users.get(caller)) {
+      case (null) { null };
+      case (?u) { ?u.role };
+    };
+  };
+
+  // True for Root Admin, President, VP, ST (the "senior leadership" tier).
+  func isSeniorLeadership(caller : Principal) : Bool {
+    switch (getAppRole(caller)) {
+      case (null) { false };
+      case (?role) {
+        switch (role) {
+          case (#rootAdmin) { true };
+          case (#president) { true };
+          case (#vicePresident) { true };
+          case (#secretaryTreasurer) { true };
+          case (_) { false };
+        };
+      };
     };
   };
 
   func isLTOrAdmin(caller : Principal) : Bool {
     if (AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      // AccessControl #admin covers rootAdmin, president, VP, ST, LT
+      // But we must also verify via app role to avoid false positives
+      // from stale AccessControl state. We trust AccessControl here as
+      // it is always kept in sync.
       return true;
     };
-    switch (users.get(caller)) {
+    switch (getAppRole(caller)) {
       case (null) { false };
-      case (?user) {
-        switch (user.role) {
+      case (?role) {
+        switch (role) {
           case (#president) { true };
           case (#vicePresident) { true };
           case (#secretaryTreasurer) { true };
           case (#lt) { true };
+          case (#rootAdmin) { true };
           case (_) { false };
         };
       };
@@ -200,10 +302,10 @@ actor {
   };
 
   func isMCOrELT(caller : Principal) : Bool {
-    switch (users.get(caller)) {
+    switch (getAppRole(caller)) {
       case (null) { false };
-      case (?user) {
-        switch (user.role) {
+      case (?role) {
+        switch (role) {
           case (#mc) { true };
           case (#elt) { true };
           case (_) { false };
@@ -212,41 +314,70 @@ actor {
     };
   };
 
+  // True if the caller's role requires event approval (LT, MC, ELT, member).
+  func requiresEventApproval(caller : Principal) : Bool {
+    switch (getAppRole(caller)) {
+      case (null) { true };
+      case (?role) {
+        switch (role) {
+          case (#rootAdmin) { false };
+          case (#president) { false };
+          case (#vicePresident) { false };
+          case (#secretaryTreasurer) { false };
+          case (_) { true };
+        };
+      };
+    };
+  };
+
+  // True if the caller can approve events (Root Admin, President, VP, ST).
+  func canApproveEvents(caller : Principal) : Bool {
+    isSeniorLeadership(caller);
+  };
+
+  // True if the caller can toggle isPaid (Root Admin, President, VP, ST).
+  func canTogglePaid(caller : Principal) : Bool {
+    isSeniorLeadership(caller);
+  };
+
   func canAccessPrivateGroup(caller : Principal, category : PostCategory) : Bool {
     if (AccessControl.hasPermission(accessControlState, caller, #admin)) {
       return true;
     };
-    switch (users.get(caller)) {
+    switch (getAppRole(caller)) {
       case (null) { false };
-      case (?user) {
+      case (?role) {
         switch (category) {
           case (#leadershipTeam) {
-            switch (user.role) {
+            switch (role) {
               case (#president) { true };
               case (#vicePresident) { true };
               case (#secretaryTreasurer) { true };
               case (#lt) { true };
+              case (#rootAdmin) { true };
               case (_) { false };
             };
           };
           case (#membershipCommittee) {
-            switch (user.role) {
+            switch (role) {
               case (#president) { true };
               case (#vicePresident) { true };
               case (#secretaryTreasurer) { true };
               case (#lt) { true };
               case (#mc) { true };
+              case (#rootAdmin) { true };
               case (_) { false };
             };
           };
           case (#coreTeam) {
-            switch (user.role) {
+            switch (role) {
               case (#president) { true };
               case (#vicePresident) { true };
               case (#secretaryTreasurer) { true };
               case (#lt) { true };
               case (#mc) { true };
               case (#elt) { true };
+              case (#rootAdmin) { true };
               case (_) { false };
             };
           };
@@ -293,32 +424,82 @@ actor {
     );
   };
 
-  public query ({ caller }) func isCallerApproved() : async Bool {
-    AccessControl.hasPermission(accessControlState, caller, #admin) or UserApproval.isApproved(approvalState, caller);
+  // ---------------------------------------------------------------------------
+  // Notification helper
+  // ---------------------------------------------------------------------------
+
+  func addNotification(
+    recipient : Principal,
+    message : Text,
+    notificationType : {
+      #accountApproved;
+      #announcementPublished;
+      #eventCreated;
+      #eventReminder;
+      #roleAssigned;
+      #tenureSwitched;
+    },
+  ) {
+    let notification : Notification = {
+      recipient;
+      message;
+      timestamp = Time.now();
+      isRead = false;
+      notificationType;
+    };
+
+    let existing = switch (notifications.get(recipient)) {
+      case (null) { List.empty<Notification>() };
+      case (?n) { n };
+    };
+
+    existing.add(notification);
+    notifications.add(recipient, existing);
   };
 
-  public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
+  // ---------------------------------------------------------------------------
+  // Public: profile
+  // ---------------------------------------------------------------------------
+
+  public query ({ caller }) func isCallerApproved() : async Bool {
+    isApprovedOrAdmin(caller);
+  };
+
+  public query ({ caller }) func getCallerUserProfile() : async ?User {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only authenticated users can get their profile");
     };
     switch (users.get(caller)) {
       case (null) { null };
-      case (?u) {
-        ?{
-          name = u.name;
-          email = u.email;
-          role = u.role;
-          isApproved = u.isApproved;
-          profilePic = u.profilePic;
+      case (?user) {
+        if (user.email == "graph.dust@gmail.com") {
+          if (user.role != #rootAdmin or not user.isApproved) {
+            return ?{ user with role = #rootAdmin; isApproved = true };
+          };
         };
+        ?user;
       };
     };
   };
 
-  public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
+  public shared ({ caller }) func saveCallerUserProfile(profile : User) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       Runtime.trap("Unauthorized: Only authenticated users can save their profile");
     };
+
+    if (profile.email == "graph.dust@gmail.com") {
+      let user : User = {
+        name = profile.name;
+        email = profile.email;
+        role = #rootAdmin;
+        isApproved = true;
+        profilePic = profile.profilePic;
+      };
+      users.add(caller, user);
+      AccessControl.assignRole(accessControlState, caller, caller, #admin);
+      return;
+    };
+
     let existingRole : Role = switch (users.get(caller)) {
       case (null) { #member };
       case (?u) { u.role };
@@ -337,28 +518,45 @@ actor {
     users.add(caller, user);
   };
 
-  public query ({ caller }) func getUserProfile(user : Principal) : async ?UserProfile {
+  public query ({ caller }) func getUserProfile(user : Principal) : async ?User {
     if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
       Runtime.trap("Unauthorized: Can only view your own profile");
     };
     switch (users.get(user)) {
       case (null) { null };
       case (?u) {
-        ?{
-          name = u.name;
-          email = u.email;
-          role = u.role;
-          isApproved = u.isApproved;
-          profilePic = u.profilePic;
+        if (u.email == "graph.dust@gmail.com") {
+          if (u.role != #rootAdmin or not u.isApproved) {
+            return ?{ u with role = #rootAdmin; isApproved = true };
+          };
         };
+        ?u;
       };
     };
   };
+
+  // ---------------------------------------------------------------------------
+  // Public: registration
+  // ---------------------------------------------------------------------------
 
   public shared ({ caller }) func registerUser(name : Text, email : Text) : async () {
     if (caller.isAnonymous()) {
       Runtime.trap("Unauthorized: Anonymous users cannot register");
     };
+
+    if (email == "graph.dust@gmail.com") {
+      let user : User = {
+        name;
+        email;
+        role = #rootAdmin;
+        isApproved = true;
+        profilePic = null;
+      };
+      users.add(caller, user);
+      AccessControl.assignRole(accessControlState, caller, caller, #admin);
+      return;
+    };
+
     let user : User = {
       name;
       email;
@@ -368,6 +566,10 @@ actor {
     };
     users.add(caller, user);
   };
+
+  // ---------------------------------------------------------------------------
+  // Public: tenure
+  // ---------------------------------------------------------------------------
 
   public shared ({ caller }) func startNewTenure(
     president : Principal,
@@ -380,10 +582,13 @@ actor {
       Runtime.trap("Unauthorized: Only admins can perform this action");
     };
 
+    // Downgrade all non-root-admin users to member
     for ((principal, user) in users.entries()) {
-      let updatedUser = { user with role = #member };
-      users.add(principal, updatedUser);
-      AccessControl.assignRole(accessControlState, caller, principal, #user);
+      if (user.email != "graph.dust@gmail.com") {
+        let updatedUser = { user with role = #member };
+        users.add(principal, updatedUser);
+        AccessControl.assignRole(accessControlState, caller, principal, #user);
+      };
     };
 
     let newTenure : Tenure = {
@@ -418,6 +623,7 @@ actor {
         };
       };
     };
+
     for (member in users.keys().toArray().values()) {
       addNotification(
         member,
@@ -427,6 +633,10 @@ actor {
     };
   };
 
+  // ---------------------------------------------------------------------------
+  // Public: role assignment
+  // ---------------------------------------------------------------------------
+
   public shared ({ caller }) func assignRole(user : Principal, role : Role) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can assign roles");
@@ -435,6 +645,10 @@ actor {
     let userData = switch (users.get(user)) {
       case (null) { Runtime.trap("User does not exist") };
       case (?data) { data };
+    };
+
+    if (userData.email == "graph.dust@gmail.com") {
+      Runtime.trap("Unauthorized: Cannot change the role of the root admin");
     };
 
     let updatedUser = { userData with role };
@@ -450,6 +664,10 @@ actor {
     );
   };
 
+  // ---------------------------------------------------------------------------
+  // Public: posts
+  // ---------------------------------------------------------------------------
+
   public shared ({ caller }) func submitPost(category : PostCategory, content : Text, image : ?Storage.ExternalBlob) : async () {
     requireApprovedUser(caller);
 
@@ -458,7 +676,6 @@ actor {
       case (?u) { u };
     };
 
-    let isAdmin = AccessControl.hasPermission(accessControlState, caller, #admin);
     let callerIsLTOrAdmin = isLTOrAdmin(caller);
     let callerIsMCOrELT = isMCOrELT(caller);
 
@@ -610,7 +827,7 @@ actor {
   };
 
   public query ({ caller }) func getPosts(categoryFilter : ?PostCategory) : async [PostView] {
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin) and not UserApproval.isApproved(approvalState, caller)) {
+    if (not isApprovedOrAdmin(caller)) {
       Runtime.trap("Unauthorized: Your account is pending approval");
     };
 
@@ -648,13 +865,13 @@ actor {
   };
 
   public query ({ caller }) func getMyPosts() : async [PostView] {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
     let myPosts = filterAndMapPosts(func(p : Post) : Bool { p.author == caller });
     sortPostsByTime(myPosts);
   };
 
   public query ({ caller }) func searchPostsByMember(memberName : Text) : async [PostView] {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
     let callerIsLTOrAdmin = isLTOrAdmin(caller);
     let matchingPosts = filterAndMapPosts(
       func(p : Post) : Bool {
@@ -665,7 +882,7 @@ actor {
   };
 
   public query ({ caller }) func getComments(postId : Nat) : async [Comment] {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     let post = switch (posts.get(postId)) {
       case (null) { Runtime.trap("Post does not exist") };
@@ -682,6 +899,10 @@ actor {
     };
   };
 
+  // ---------------------------------------------------------------------------
+  // Public: events
+  // ---------------------------------------------------------------------------
+
   public shared ({ caller }) func createEvent(
     title : Text,
     description : Text,
@@ -695,6 +916,14 @@ actor {
       Runtime.trap("Unauthorized: Only LT, MC, ELT, or admins can create events");
     };
 
+    // Senior leadership (rootAdmin, president, VP, ST) events are auto-approved.
+    // All other roles (LT, MC, ELT) require approval.
+    let eventStatus : EventStatus = if (requiresEventApproval(caller)) {
+      #pending;
+    } else {
+      #approved;
+    };
+
     let event : Event = {
       id = events.size();
       title;
@@ -703,10 +932,12 @@ actor {
       banner;
       registrationLimit;
       creator = caller;
+      status = eventStatus;
     };
 
     events.add(events.size(), event);
 
+    // Notify all members about the new event creation (regardless of approval status).
     for (member in users.keys().toArray().values()) {
       addNotification(
         member,
@@ -714,19 +945,85 @@ actor {
         #eventCreated,
       );
     };
+
+    // If the event is pending, notify senior leadership so they can approve it.
+    if (eventStatus == #pending) {
+      for ((principal, user) in users.entries()) {
+        if (isSeniorLeadership(principal)) {
+          addNotification(
+            principal,
+            "A new event requires your approval: " # title,
+            #eventCreated,
+          );
+        };
+      };
+    };
   };
 
-  public query ({ caller }) func getEvents() : async [Event] {
+  /// Approve a pending event. Only Root Admin, President, VP, and ST may call this.
+  public shared ({ caller }) func approveEvent(eventId : Nat) : async () {
     requireApprovedUser(caller);
-    events.values().toArray();
+
+    if (not canApproveEvents(caller)) {
+      Runtime.trap("Unauthorized: Only Root Admin, President, Vice President, or Secretary Treasurer can approve events");
+    };
+
+    let event = switch (events.get(eventId)) {
+      case (null) { Runtime.trap("Event does not exist") };
+      case (?e) { e };
+    };
+
+    if (event.status == #approved) {
+      Runtime.trap("Event is already approved");
+    };
+
+    let updatedEvent = { event with status = #approved };
+    events.add(eventId, updatedEvent);
+
+    // Notify the event creator that their event was approved.
+    addNotification(
+      event.creator,
+      "Your event has been approved: " # event.title,
+      #eventCreated,
+    );
+
+    // Notify all members about the newly approved event.
+    for (member in users.keys().toArray().values()) {
+      if (member != event.creator) {
+        addNotification(
+          member,
+          "Event approved and now available: " # event.title,
+          #eventCreated,
+        );
+      };
+    };
+  };
+
+  /// Returns only approved events to regular users.
+  /// Senior leadership (rootAdmin, president, VP, ST) can also see pending events.
+  public query ({ caller }) func getEvents() : async [Event] {
+    requireApprovedUserQuery(caller);
+
+    let callerCanSeePending = canApproveEvents(caller);
+
+    events.values().toArray().filter(
+      func(e : Event) : Bool {
+        e.status == #approved or callerCanSeePending;
+      }
+    );
   };
 
   public shared ({ caller }) func registerForEvent(eventId : Nat) : async () {
     requireApprovedUser(caller);
 
-    switch (events.get(eventId)) {
+    let event = switch (events.get(eventId)) {
       case (null) { Runtime.trap("Event does not exist") };
-      case (?_event) {};
+      case (?e) { e };
+    };
+
+    // Only allow registration for approved events.
+    if (event.status != #approved) {
+      Runtime.trap("Cannot register for an event that has not been approved yet");
     };
 
     let registration : Registration = {
@@ -739,9 +1036,13 @@ actor {
     eventRegistrations.add((eventId, caller), registration);
   };
 
+  /// Toggle the isPaid flag on an event registration.
+  /// Only Root Admin, President, Vice President, and Secretary Treasurer may call this.
   public shared ({ caller }) func togglePaid(eventId : Nat, user : Principal) : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
-      Runtime.trap("Unauthorized: Only admins can update payment status");
+    requireApprovedUser(caller);
+
+    if (not canTogglePaid(caller)) {
+      Runtime.trap("Unauthorized: Only Root Admin, President, Vice President, or Secretary Treasurer can update payment status");
     };
 
     let reg = switch (eventRegistrations.get((eventId, user))) {
@@ -752,34 +1053,23 @@ actor {
     eventRegistrations.add((eventId, user), { reg with isPaid = not reg.isPaid });
   };
 
-  func addNotification(
-    recipient : Principal,
-    message : Text,
-    notificationType : {
-      #accountApproved;
-      #announcementPublished;
-      #eventCreated;
-      #eventReminder;
-      #roleAssigned;
-      #tenureSwitched;
-    },
-  ) {
-    let notification : Notification = {
-      recipient;
-      message;
-      timestamp = Time.now();
-      isRead = false;
-      notificationType;
+  /// Get registrations for an event.
+  /// Only senior leadership can view the full registration list with payment status.
+  public query ({ caller }) func getEventRegistrations(eventId : Nat) : async [Registration] {
+    requireApprovedUserQuery(caller);
+
+    if (not canTogglePaid(caller)) {
+      Runtime.trap("Unauthorized: Only Root Admin, President, Vice President, or Secretary Treasurer can view registration payment details");
     };
 
-    let existing = switch (notifications.get(recipient)) {
-      case (null) { List.empty<Notification>() };
-      case (?n) { n };
-    };
-
-    existing.add(notification);
-    notifications.add(recipient, existing);
+    eventRegistrations.values().toArray().filter(
+      func(r : Registration) : Bool { r.eventId == eventId }
+    );
   };
+
+  // ---------------------------------------------------------------------------
+  // Public: notifications
+  // ---------------------------------------------------------------------------
 
   public query ({ caller }) func getMyNotifications() : async [Notification] {
     if (caller.isAnonymous()) {
@@ -806,6 +1096,10 @@ actor {
     };
   };
 
+  // ---------------------------------------------------------------------------
+  // Public: approval workflow
+  // ---------------------------------------------------------------------------
+
   public shared ({ caller }) func requestApproval() : async () {
     if (caller.isAnonymous()) {
       Runtime.trap("Unauthorized: Anonymous users cannot request approval");
@@ -822,6 +1116,9 @@ actor {
     switch (users.get(user)) {
       case (null) {};
       case (?u) {
+        if (u.email == "graph.dust@gmail.com") {
+          return;
+        };
         let isApproved = switch (status) {
           case (#approved) { true };
           case (#pending) { false };
@@ -848,6 +1145,10 @@ actor {
     UserApproval.listApprovals(approvalState);
   };
 
+  // ---------------------------------------------------------------------------
+  // Public: profile picture
+  // ---------------------------------------------------------------------------
+
   public shared ({ caller }) func uploadProfilePic(image : Storage.ExternalBlob) : async () {
     if (caller.isAnonymous()) {
       Runtime.trap("Unauthorized: Anonymous users cannot upload profile pictures");
@@ -864,6 +1165,10 @@ actor {
     };
   };
 
+  // ---------------------------------------------------------------------------
+  // Utilities
+  // ---------------------------------------------------------------------------
+
   func roleToText(role : Role) : Text {
     switch (role) {
       case (#president) { "President" };
@@ -873,7 +1178,7 @@ actor {
       case (#mc) { "MC" };
       case (#elt) { "ELT" };
       case (#member) { "Member" };
+      case (#rootAdmin) { "Root Admin" };
     };
   };
 };
-

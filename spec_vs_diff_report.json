@@ -1,20 +1,56 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-25T14:43:56.020Z",
-  "summary": "The build request is a pure retry of the last failed deployment with no code changes required. The diff shows 14 modified files with actual code content present (frontend pages, backend, hooks, etc.). Since this is a retry, the files shown represent the existing codebase being redeployed. The changes visible in the diff appear to be pre-existing code rather than new modifications introduced in this diff. Based on the frontend-file-summaries.txt, these changes are described as existing features being re-deployed. REQ-12 requires a successful build and deployment of previously implemented features with no new code changes.",
-  "missing_requirements": [],
-  "hallucinated_features": [],
-  "confidence": 0.62,
+  "generatedAt": "2026-02-26T06:38:11.821Z",
+  "summary": "The diff implements most of the required fixes: an ErrorBoundary component is added (REQ-28), App.tsx is overhauled with defensive loading states and fallback UI paths (REQ-27), and useQueries.ts adds explicit isLoading/isError handling with actor guards (REQ-29). However, some specific acceptance criteria cannot be fully confirmed due to truncation of App.tsx, and the ErrorBoundary is not clearly shown wrapping the root in main.tsx.",
+  "missing_requirements": [
+    {
+      "id": "REQ-28",
+      "requirement": "A React ErrorBoundary component must wrap the root App component in main.tsx or equivalent non-immutable entry point.",
+      "reason": "The ErrorBoundary component is created in frontend/src/components/ErrorBoundary.tsx, but the diff does not show main.tsx being modified to wrap the App component with it. Without a change to main.tsx, the boundary may not be at the root level.",
+      "evidence": [
+        "frontend/src/components/ErrorBoundary.tsx"
+      ]
+    }
+  ],
+  "hallucinated_features": [
+    {
+      "description": "A ProfileSetupModal component was added as a new modal-based profile setup flow.",
+      "reason": "The build request did not request a new ProfileSetupModal component — only diagnostic fixes and error boundary additions were requested. This is a new UI feature not mentioned in any requirement.",
+      "evidence": [
+        "frontend/src/components/ProfileSetupModal.tsx"
+      ]
+    },
+    {
+      "description": "A WaitingForApproval component was added as a standalone waiting screen component.",
+      "reason": "The build request does not request creation of a new WaitingForApproval component. While a waiting state may be needed for flow, creating a new dedicated component goes beyond the stated requirements which focused on fixing blank pages and adding error boundaries.",
+      "evidence": [
+        "frontend/src/components/WaitingForApproval.tsx"
+      ]
+    },
+    {
+      "description": "An AuthPage component combining login and signup was added.",
+      "reason": "The build request does not request creation of a new AuthPage combining login and signup views. This is a new feature not mentioned in REQ-27, REQ-28, or REQ-29.",
+      "evidence": [
+        "frontend/src/pages/AuthPage.tsx"
+      ]
+    }
+  ],
+  "confidence": 0.65,
   "changed_files": [
-    "backend/main.mo",
     "frontend-file-summaries.txt",
     "frontend/src/App.tsx",
-    "frontend/src/components/AppHeader.tsx",
-    "frontend/src/components/AppSidebar.tsx",
+    "frontend/src/components/ErrorBoundary.tsx",
+    "frontend/src/components/ProfileSetupModal.tsx",
+    "frontend/src/components/WaitingForApproval.tsx",
     "frontend/src/components/auth/SignupForm.tsx",
+    "frontend/src/components/events/CreateEventForm.tsx",
+    "frontend/src/components/feed/CreatePostForm.tsx",
+    "frontend/src/components/feed/PendingApprovals.tsx",
+    "frontend/src/components/layout/MainLayout.tsx",
     "frontend/src/hooks/useQueries.ts",
-    "frontend/src/pages/AdminPage.tsx",
+    "frontend/src/lib/utils.ts",
+    "frontend/src/pages/AuthPage.tsx",
     "frontend/src/pages/ChapterGrowthPage.tsx",
     "frontend/src/pages/EventsPage.tsx",
     "frontend/src/pages/FeedPage.tsx",

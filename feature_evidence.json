@@ -2,16 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-re-attempt-the-previous-build-and-deployment-no-code-changes-are-required-this-is-a-retry-of-the-last-failed-deployment-due-to-a-transient-technical-error",
-      "featureTitle": "Re-attempt the previous build and deployment. No code changes are required — this is a retry of the last failed deployment due to a transient technical error.",
+      "featureId": "feature-diagnose-and-fix-the-blank-page-that-appears-after-the-anthroverse-loading-splash-screen-audit-app-tsx-for-any-unhandled-promise-rejections-missing-null-checks-on-actor-or-user-profile-queries-or-router-initialization-errors-that-would-cause-the-app-to-silently-fail-and-render-nothing-after-the-splash-add-defensive-fallbacks-e-g-error-boundaries-loading-fallback-states-so-the-app-always-progresses-to-either-the-auth-page-or-the-main-layout-regardless-of-backend-query-failures",
+      "featureTitle": "Diagnose and fix the blank page that appears after the AnthroVerse loading/splash screen. Audit App.tsx for any unhandled promise rejections, missing null checks on actor or user profile queries, or router initialization errors that would cause the app to silently fail and render nothing after the splash. Add defensive fallbacks (e.g., error boundaries, loading fallback states) so the app always progresses to either the auth page or the main layout regardless of backend query failures.",
       "files": [
         "frontend/src/App.tsx",
-        "frontend/src/components/AppHeader.tsx",
-        "frontend/src/components/AppSidebar.tsx",
-        "frontend/src/pages/AdminPage.tsx",
-        "frontend/src/pages/EventsPage.tsx",
-        "frontend/src/pages/FeedPage.tsx",
-        "frontend/src/pages/ProfilePage.tsx"
+        "frontend/src/hooks/useQueries.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -24,7 +19,49 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-12"
+        "REQ-27"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-add-a-top-level-react-error-boundary-component-wrapping-the-entire-app-tree-if-any-component-in-the-tree-throws-during-render-or-in-a-lifecycle-display-a-minimal-recovery-ui-e-g-something-went-wrong-please-refresh-instead-of-a-blank-page-this-must-not-affect-the-immutable-files-under-frontend-src-hooks-or-frontend-src-components-ui",
+      "featureTitle": "Add a top-level React error boundary component wrapping the entire App tree. If any component in the tree throws during render or in a lifecycle, display a minimal recovery UI (e.g., 'Something went wrong — please refresh') instead of a blank page. This must not affect the immutable files under frontend/src/hooks/ or frontend/src/components/ui.",
+      "files": [
+        "frontend/src/components/ErrorBoundary.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-28"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-audit-the-tanstack-router-and-react-query-initialization-in-app-tsx-ensure-the-router-is-fully-initialized-before-any-route-rendering-begins-that-all-query-hooks-have-defined-fallback-states-isloading-iserror-handled-before-returning-jsx-and-that-no-query-result-is-destructured-or-accessed-before-it-is-confirmed-non-null-fix-any-race-conditions-between-the-internet-identity-auth-state-resolving-and-the-router-attempting-to-render-protected-routes",
+      "featureTitle": "Audit the TanStack Router and React Query initialization in App.tsx: ensure the router is fully initialized before any route rendering begins, that all query hooks have defined fallback states (isLoading, isError) handled before returning JSX, and that no query result is destructured or accessed before it is confirmed non-null. Fix any race conditions between the Internet Identity auth state resolving and the router attempting to render protected routes.",
+      "files": [
+        "frontend/src/App.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-29"
       ],
       "confidence": "high"
     }

@@ -1,230 +1,131 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useInternetIdentity } from '../../hooks/useInternetIdentity';
 import { useSaveCallerUserProfile, useUploadProfilePic } from '../../hooks/useQueries';
+import { Role } from '../../backend';
 import { ExternalBlob } from '../../backend';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
-import { Loader2, Camera, User, Mail, Fingerprint, CheckCircle } from 'lucide-react';
 
-interface SignupFormProps {
-  onSwitchToLogin: () => void;
-  onSignupComplete: () => void;
-}
+type Step = 'connect' | 'profile';
 
-export default function SignupForm({ onSwitchToLogin, onSignupComplete }: SignupFormProps) {
+export default function SignupForm() {
   const { login, loginStatus, identity } = useInternetIdentity();
   const saveProfile = useSaveCallerUserProfile();
   const uploadProfilePic = useUploadProfilePic();
 
-  const [step, setStep] = useState<'auth' | 'profile'>('auth');
+  const [step, setStep] = useState<Step>('connect');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [picFile, setPicFile] = useState<File | null>(null);
+  const [picPreview, setPicPreview] = useState<string | null>(null);
+  const [error, setError] = useState('');
 
-  const isLoggingIn = loginStatus === 'logging-in';
-
-  useEffect(() => {
-    if (identity && step === 'auth') {
+  const handleLogin = async () => {
+    try {
+      await login();
       setStep('profile');
+    } catch (err: any) {
+      setError(err?.message || 'Login failed');
     }
-  }, [identity, step]);
-
-  const handleConnectIdentity = () => {
-    login();
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePicChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setErrors(prev => ({ ...prev, photo: 'Please select an image file' }));
-      return;
-    }
-    setPhotoFile(file);
+    setPicFile(file);
     const reader = new FileReader();
-    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string);
+    reader.onload = ev => setPicPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
-    setErrors(prev => ({ ...prev, photo: '' }));
   };
 
-  const validate = () => {
-    const newErrors: Record<string, string> = {};
-    if (!name.trim() || name.trim().length < 2) newErrors.name = 'Please enter your full name';
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = 'Please enter a valid email';
-    if (!photoFile) newErrors.photo = 'Profile photo is required';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validate() || !identity) return;
-
-    setIsSubmitting(true);
+    if (!name.trim() || !email.trim()) return;
+    setError('');
     try {
       await saveProfile.mutateAsync({
         name: name.trim(),
         email: email.trim(),
-        role: { member: null } as any,
+        role: Role.member,
         isApproved: false,
         profilePic: undefined,
       });
 
-      if (photoFile) {
-        const arrayBuffer = await photoFile.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        const blob = ExternalBlob.fromBytes(bytes).withUploadProgress((pct) => setUploadProgress(pct));
+      if (picFile) {
+        const bytes = new Uint8Array(await picFile.arrayBuffer());
+        const blob = ExternalBlob.fromBytes(bytes as Uint8Array<ArrayBuffer>);
         await uploadProfilePic.mutateAsync(blob);
       }
-
-      onSignupComplete();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Registration failed. Please try again.';
-      setErrors(prev => ({ ...prev, submit: msg }));
-    } finally {
-      setIsSubmitting(false);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save profile');
     }
   };
 
-  if (step === 'auth') {
+  if (step === 'connect' || !identity) {
     return (
-      <div className="space-y-6">
-        <div className="text-center">
-          <h2 className="font-display font-bold text-2xl text-white">Create Account</h2>
-          <p className="text-white/60 text-sm mt-1">First, connect your Internet Identity</p>
-        </div>
-
-        <Button
-          onClick={handleConnectIdentity}
-          disabled={isLoggingIn}
-          className="w-full h-12 font-display font-semibold text-base gold-gradient text-cosmic-deep hover:opacity-90 transition-opacity border-0 rounded-xl shadow-glow"
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground text-center">
+          Connect with Internet Identity to join AnthroVerse
+        </p>
+        {error && <p className="text-destructive text-sm text-center">{error}</p>}
+        <button
+          onClick={handleLogin}
+          disabled={loginStatus === 'logging-in'}
+          className="w-full py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
-          {isLoggingIn ? (
-            <><Loader2 size={18} className="animate-spin mr-2" />Connecting...</>
-          ) : (
-            <><Fingerprint size={18} className="mr-2" />Connect Internet Identity</>
-          )}
-        </Button>
-
-        <div className="text-center pt-2 border-t border-white/10">
-          <span className="text-white/50 text-sm">Already have an account? </span>
-          <button
-            onClick={onSwitchToLogin}
-            className="text-amber-400 hover:text-amber-300 text-sm font-medium transition-colors"
-          >
-            Sign In
-          </button>
-        </div>
+          {loginStatus === 'logging-in' ? 'Connecting…' : 'Connect with Internet Identity'}
+        </button>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="text-center">
-        <h2 className="font-display font-bold text-2xl text-white">Complete Your Profile</h2>
-        <p className="text-white/60 text-sm mt-1">Tell us about yourself</p>
+    <form onSubmit={handleProfileSubmit} className="space-y-4">
+      <p className="text-sm text-muted-foreground text-center">Complete your profile</p>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Full Name</label>
+        <input
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+          placeholder="Your full name"
+          required
+        />
       </div>
-
-      {errors.submit && (
-        <div className="bg-red-500/20 border border-red-500/30 rounded-lg px-4 py-3 text-sm text-red-300">
-          {errors.submit}
-        </div>
-      )}
-
-      {/* Profile Photo */}
-      <div className="flex flex-col items-center gap-3">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-dashed border-amber-400/50 hover:border-amber-400 transition-colors bg-white/5 flex items-center justify-center group"
-        >
-          {photoPreview ? (
-            <img src={photoPreview} alt="Preview" className="w-full h-full object-cover" />
-          ) : (
-            <Camera size={24} className="text-amber-400/60 group-hover:text-amber-400 transition-colors" />
-          )}
-          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-            <Camera size={20} className="text-white" />
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Email</label>
+        <input
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+          placeholder="your@email.com"
+          required
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1">Profile Picture (optional)</label>
+        {picPreview ? (
+          <div className="flex items-center gap-3">
+            <img src={picPreview} alt="Preview" className="w-12 h-12 rounded-full object-cover" />
+            <button type="button" onClick={() => { setPicFile(null); setPicPreview(null); }} className="text-xs text-muted-foreground hover:text-foreground">
+              Remove
+            </button>
           </div>
-        </button>
-        <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoChange} className="hidden" />
-        <span className="text-white/50 text-xs">
-          {photoFile ? photoFile.name : 'Upload profile photo (required)'}
-        </span>
-        {errors.photo && <span className="text-red-400 text-xs">{errors.photo}</span>}
-      </div>
-
-      {/* Name */}
-      <div className="space-y-1.5">
-        <Label className="text-white/70 text-sm">Full Name</Label>
-        <div className="relative">
-          <User size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-          <Input
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Your real full name"
-            className="pl-9 bg-white/5 border-white/20 text-white placeholder:text-white/30 focus:border-amber-400/60 rounded-xl"
-          />
-        </div>
-        {errors.name && <span className="text-red-400 text-xs">{errors.name}</span>}
-      </div>
-
-      {/* Email */}
-      <div className="space-y-1.5">
-        <Label className="text-white/70 text-sm">Email Address</Label>
-        <div className="relative">
-          <Mail size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40" />
-          <Input
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            placeholder="your@email.com"
-            className="pl-9 bg-white/5 border-white/20 text-white placeholder:text-white/30 focus:border-amber-400/60 rounded-xl"
-          />
-        </div>
-        {errors.email && <span className="text-red-400 text-xs">{errors.email}</span>}
-      </div>
-
-      {isSubmitting && uploadProgress > 0 && (
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-white/50">
-            <span>Uploading photo...</span>
-            <span>{uploadProgress}%</span>
-          </div>
-          <Progress value={uploadProgress} className="h-1.5" />
-        </div>
-      )}
-
-      <Button
-        type="submit"
-        disabled={isSubmitting}
-        className="w-full h-12 font-display font-semibold text-base gold-gradient text-cosmic-deep hover:opacity-90 transition-opacity border-0 rounded-xl shadow-glow"
-      >
-        {isSubmitting ? (
-          <><Loader2 size={18} className="animate-spin mr-2" />Creating Account...</>
         ) : (
-          <><CheckCircle size={18} className="mr-2" />Complete Registration</>
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+            <span className="px-3 py-1.5 border border-border rounded-lg hover:bg-muted transition-colors">Choose file</span>
+            <input type="file" accept="image/*" className="hidden" onChange={handlePicChange} />
+          </label>
         )}
-      </Button>
-
-      <div className="text-center pt-2 border-t border-white/10">
-        <span className="text-white/50 text-sm">Already have an account? </span>
-        <button
-          type="button"
-          onClick={onSwitchToLogin}
-          className="text-amber-400 hover:text-amber-300 text-sm font-medium transition-colors"
-        >
-          Sign In
-        </button>
       </div>
+      {error && <p className="text-destructive text-sm">{error}</p>}
+      <button
+        type="submit"
+        disabled={saveProfile.isPending || uploadProfilePic.isPending || !name.trim() || !email.trim()}
+        className="w-full py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+      >
+        {saveProfile.isPending || uploadProfilePic.isPending ? 'Saving…' : 'Create Profile'}
+      </button>
     </form>
   );
 }

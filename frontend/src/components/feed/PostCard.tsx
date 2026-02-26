@@ -3,7 +3,7 @@ import type { PostView } from '../../backend';
 import { PostStatus, PostCategory } from '../../backend';
 import { useInternetIdentity } from '../../hooks/useInternetIdentity';
 import { useGetCallerUserProfile, useToggleLike, useDeletePost, useApprovePost, useGetComments, useAddComment } from '../../hooks/useQueries';
-import { canDeleteAnyPost, canApproveContent } from '../../utils/permissions';
+import { canDeleteAnyPost, canApprovePost } from '../../utils/permissions';
 import { formatRelativeTime } from '../../utils/time';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -50,13 +50,14 @@ export default function PostCard({ post }: PostCardProps) {
   const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState('');
 
-  // Only fetch comments when expanded; use a sentinel value to disable when collapsed
-  const commentsPostId = showComments ? post.id : BigInt(-1);
-  const { data: comments = [], isLoading: commentsLoading } = useGetComments(commentsPostId);
+  // Only fetch comments when expanded; pass undefined to disable when collapsed
+  const { data: comments = [], isLoading: commentsLoading } = useGetComments(
+    showComments ? post.id : undefined
+  );
 
   const isAuthor = identity && post.author.toString() === identity.getPrincipal().toString();
   const canDelete = profile && (isAuthor || canDeleteAnyPost(profile.role));
-  const canApprove = profile && canApproveContent(profile.role) && post.status === PostStatus.pending;
+  const canApprove = profile && canApprovePost(profile.role) && post.status === PostStatus.pending;
   const isLiked = identity && post.likes.some(p => p.toString() === identity.getPrincipal().toString());
   const imageUrl = post.image?.getDirectURL();
 
@@ -94,127 +95,115 @@ export default function PostCard({ post }: PostCardProps) {
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${getCategoryColor(post.category)}`}>
-                  {getCategoryLabel(post.category)}
-                </span>
-                <span className="text-xs text-muted-foreground">{formatRelativeTime(post.timestamp)}</span>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                {formatRelativeTime(post.timestamp)}
+              </p>
             </div>
           </div>
-
-          <div className="flex items-center gap-1 shrink-0">
-            {canApprove && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => approvePost.mutate(post.id)}
-                disabled={approvePost.isPending}
-                className="h-7 px-2 text-green-600 hover:text-green-700 hover:bg-green-500/10 text-xs"
-              >
-                {approvePost.isPending ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <CheckCircle size={12} />
-                )}
-                <span className="ml-1">Approve</span>
-              </Button>
-            )}
-            {canDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => deletePost.mutate(post.id)}
-                disabled={deletePost.isPending}
-                className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-              >
-                {deletePost.isPending ? (
-                  <Loader2 size={12} className="animate-spin" />
-                ) : (
-                  <Trash2 size={12} />
-                )}
-              </Button>
-            )}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${getCategoryColor(post.category)}`}>
+              {getCategoryLabel(post.category)}
+            </span>
           </div>
         </div>
 
         {/* Content */}
-        <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{post.content}</p>
+        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">{post.content}</p>
 
         {/* Actions */}
-        <div className="flex items-center gap-4 pt-1 border-t border-border">
+        <div className="flex items-center gap-3 pt-1">
           <button
-            onClick={() => toggleLike.mutate(post.id)}
-            disabled={toggleLike.isPending}
+            onClick={() => identity && toggleLike.mutate(post.id)}
+            disabled={!identity || toggleLike.isPending}
             className={`flex items-center gap-1.5 text-sm transition-colors ${
-              isLiked ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'
+              isLiked ? 'text-rose-500' : 'text-muted-foreground hover:text-rose-500'
             }`}
           >
-            <Heart size={15} fill={isLiked ? 'currentColor' : 'none'} />
+            <Heart className={`w-4 h-4 ${isLiked ? 'fill-rose-500' : ''}`} />
             <span>{post.likes.length}</span>
           </button>
 
           <button
-            onClick={() => setShowComments(!showComments)}
+            onClick={() => setShowComments(v => !v)}
             className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            <MessageCircle size={15} />
-            <span>{showComments ? 'Hide' : 'Comments'}</span>
-            {showComments ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            <MessageCircle className="w-4 h-4" />
+            <span>{showComments ? <ChevronUp className="w-3 h-3 inline" /> : <ChevronDown className="w-3 h-3 inline" />} Comments</span>
           </button>
+
+          <div className="ml-auto flex items-center gap-2">
+            {canApprove && (
+              <button
+                onClick={() => approvePost.mutate(post.id)}
+                disabled={approvePost.isPending}
+                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors disabled:opacity-50"
+              >
+                {approvePost.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
+                Approve
+              </button>
+            )}
+            {canDelete && (
+              <button
+                onClick={() => deletePost.mutate(post.id)}
+                disabled={deletePost.isPending}
+                className="text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
+              >
+                {deletePost.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Comments */}
+        {/* Comments section */}
         {showComments && (
-          <div className="space-y-3 pt-2 border-t border-border">
+          <div className="border-t border-border pt-3 space-y-3">
             {commentsLoading ? (
               <div className="flex justify-center py-3">
-                <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
               </div>
             ) : comments.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-2">No comments yet. Be the first!</p>
+              <p className="text-xs text-muted-foreground text-center py-2">No comments yet</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
                 {comments.map((comment, idx) => (
                   <div key={idx} className="flex gap-2">
-                    <Avatar className="w-6 h-6 shrink-0">
-                      <AvatarFallback className="bg-muted text-muted-foreground text-[10px]">
+                    <Avatar className="w-6 h-6 shrink-0 mt-0.5">
+                      <AvatarFallback className="text-[10px] bg-muted">
                         {comment.author.toString().slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="bg-muted/50 rounded-lg px-3 py-2 flex-1">
-                      <p className="text-xs font-medium text-foreground mb-0.5">
-                        {formatRelativeTime(comment.timestamp)}
-                      </p>
-                      <p className="text-xs text-foreground">{comment.content}</p>
+                    <div className="flex-1 bg-muted/50 rounded-lg px-3 py-2">
+                      <p className="text-xs text-muted-foreground">{formatRelativeTime(comment.timestamp)}</p>
+                      <p className="text-xs text-foreground mt-0.5">{comment.content}</p>
                     </div>
                   </div>
                 ))}
               </div>
             )}
-
-            <form onSubmit={handleComment} className="flex gap-2">
-              <Textarea
-                value={commentText}
-                onChange={e => setCommentText(e.target.value)}
-                placeholder="Write a comment..."
-                className="text-xs min-h-[60px] resize-none rounded-lg"
-                onKeyDown={e => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    handleComment(e);
-                  }
-                }}
-              />
-              <Button
-                type="submit"
-                size="sm"
-                disabled={!commentText.trim() || addComment.isPending}
-                className="self-end h-8 px-3 text-xs"
-              >
-                {addComment.isPending ? <Loader2 size={12} className="animate-spin" /> : 'Post'}
-              </Button>
-            </form>
+            {identity && (
+              <form onSubmit={handleComment} className="flex gap-2">
+                <Textarea
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  placeholder="Write a comment..."
+                  className="text-sm min-h-[60px] resize-none"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleComment(e);
+                    }
+                  }}
+                />
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={!commentText.trim() || addComment.isPending}
+                  className="self-end"
+                >
+                  {addComment.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Post'}
+                </Button>
+              </form>
+            )}
           </div>
         )}
       </div>

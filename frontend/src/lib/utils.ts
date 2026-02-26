@@ -15,8 +15,14 @@ export function roleToLabel(role: Role): string {
     case Role.mc: return 'MC';
     case Role.elt: return 'ELT';
     case Role.member: return 'Member';
+    case Role.rootAdmin: return 'Root Admin';
     default: return 'Member';
   }
+}
+
+/** Alias for roleToLabel — used by newer components */
+export function getRoleLabel(role: Role): string {
+  return roleToLabel(role);
 }
 
 export function roleBadgeClass(role: Role): string {
@@ -28,6 +34,7 @@ export function roleBadgeClass(role: Role): string {
     case Role.mc: return 'role-badge-mc';
     case Role.elt: return 'role-badge-elt';
     case Role.member: return 'role-badge-member';
+    case Role.rootAdmin: return 'role-badge-root-admin';
     default: return 'role-badge-member';
   }
 }
@@ -55,49 +62,7 @@ export function formatTimestamp(timestamp: bigint): string {
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
   if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
   if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d ago`;
-
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-}
-
-export function formatEventDate(timestamp: bigint): string {
-  const ms = Number(timestamp) / 1_000_000;
-  const date = new Date(ms);
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-}
-
-export function isUpcomingEvent(timestamp: bigint): boolean {
-  const ms = Number(timestamp) / 1_000_000;
-  return ms > Date.now();
-}
-
-export function canPostAnnouncements(role: Role, isAdmin: boolean): boolean {
-  if (isAdmin) return true;
-  return [Role.president, Role.vicePresident, Role.secretaryTreasurer, Role.lt, Role.mc, Role.elt].includes(role);
-}
-
-export function canApproveContent(role: Role, isAdmin: boolean): boolean {
-  if (isAdmin) return true;
-  return [Role.president, Role.vicePresident, Role.secretaryTreasurer].includes(role);
-}
-
-export function canMarkPayment(role: Role, isAdmin: boolean): boolean {
-  if (isAdmin) return true;
-  return [Role.president, Role.vicePresident, Role.secretaryTreasurer].includes(role);
-}
-
-export function canCreateEvent(role: Role, isAdmin: boolean): boolean {
-  if (isAdmin) return true;
-  return [Role.president, Role.vicePresident, Role.secretaryTreasurer, Role.lt].includes(role);
-}
-
-export function canAccessChapterGrowth(role: Role, isAdmin: boolean): boolean {
-  if (isAdmin) return true;
-  return [Role.president, Role.vicePresident, Role.secretaryTreasurer, Role.lt, Role.mc, Role.elt].includes(role);
 }
 
 export function getInitials(name: string): string {
@@ -109,9 +74,28 @@ export function getInitials(name: string): string {
     .slice(0, 2);
 }
 
-export function postStatusBadge(status: PostStatus): { label: string; className: string } {
-  if (status === PostStatus.pending) {
-    return { label: 'Pending', className: 'bg-warning/15 text-warning border border-warning/30' };
+/**
+ * Legacy helper used by older PostCard component.
+ * Checks if the user can approve content (posts/announcements).
+ */
+export function canApproveContent(role: Role, isAdmin: boolean): boolean {
+  if (isAdmin) return true;
+  switch (role) {
+    case Role.rootAdmin:
+    case Role.president:
+    case Role.vicePresident:
+    case Role.secretaryTreasurer:
+    case Role.lt:
+      return true;
+    default:
+      return false;
   }
-  return { label: 'Published', className: 'bg-success/15 text-success border border-success/30' };
+}
+
+export function postStatusLabel(status: PostStatus): string {
+  switch (status) {
+    case PostStatus.pending: return 'Pending';
+    case PostStatus.published: return 'Published';
+    default: return 'Unknown';
+  }
 }

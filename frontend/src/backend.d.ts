@@ -21,6 +21,19 @@ export interface Comment {
     timestamp: Time;
     postId: bigint;
 }
+export interface User {
+    isApproved: boolean;
+    name: string;
+    role: Role;
+    email: string;
+    profilePic?: ExternalBlob;
+}
+export interface Registration {
+    eventId: bigint;
+    user: Principal;
+    isPaid: boolean;
+    timestamp: Time;
+}
 export interface PostView {
     id: bigint;
     status: PostStatus;
@@ -36,6 +49,7 @@ export interface PostView {
 }
 export interface Event {
     id: bigint;
+    status: EventStatus;
     title: string;
     creator: Principal;
     registrationLimit?: bigint;
@@ -54,17 +68,14 @@ export interface Notification {
     message: string;
     timestamp: Time;
 }
-export interface UserProfile {
-    isApproved: boolean;
-    name: string;
-    role: Role;
-    email: string;
-    profilePic?: ExternalBlob;
-}
 export enum ApprovalStatus {
     pending = "pending",
     approved = "approved",
     rejected = "rejected"
+}
+export enum EventStatus {
+    pending = "pending",
+    approved = "approved"
 }
 export enum PostCategory {
     fun = "fun",
@@ -86,6 +97,7 @@ export enum Role {
     member = "member",
     secretaryTreasurer = "secretaryTreasurer",
     vicePresident = "vicePresident",
+    rootAdmin = "rootAdmin",
     president = "president"
 }
 export enum UserRole {
@@ -103,19 +115,32 @@ export enum Variant_roleAssigned_eventCreated_tenureSwitched_accountApproved_ann
 }
 export interface backendInterface {
     addComment(postId: bigint, content: string): Promise<void>;
+    /**
+     * / Approve a pending event. Only Root Admin, President, VP, and ST may call this.
+     */
+    approveEvent(eventId: bigint): Promise<void>;
     approvePost(postId: bigint): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     assignRole(user: Principal, role: Role): Promise<void>;
     createEvent(title: string, description: string, date: Time, banner: ExternalBlob | null, registrationLimit: bigint | null): Promise<void>;
     deletePost(postId: bigint): Promise<void>;
-    getCallerUserProfile(): Promise<UserProfile | null>;
+    getCallerUserProfile(): Promise<User | null>;
     getCallerUserRole(): Promise<UserRole>;
     getComments(postId: bigint): Promise<Array<Comment>>;
+    /**
+     * / Get registrations for an event.
+     * / Only senior leadership can view the full registration list with payment status.
+     */
+    getEventRegistrations(eventId: bigint): Promise<Array<Registration>>;
+    /**
+     * / Returns only approved events to regular users.
+     * / Senior leadership (rootAdmin, president, VP, ST) can also see pending events.
+     */
     getEvents(): Promise<Array<Event>>;
     getMyNotifications(): Promise<Array<Notification>>;
     getMyPosts(): Promise<Array<PostView>>;
     getPosts(categoryFilter: PostCategory | null): Promise<Array<PostView>>;
-    getUserProfile(user: Principal): Promise<UserProfile | null>;
+    getUserProfile(user: Principal): Promise<User | null>;
     isCallerAdmin(): Promise<boolean>;
     isCallerApproved(): Promise<boolean>;
     listApprovals(): Promise<Array<UserApprovalInfo>>;
@@ -123,12 +148,16 @@ export interface backendInterface {
     registerForEvent(eventId: bigint): Promise<void>;
     registerUser(name: string, email: string): Promise<void>;
     requestApproval(): Promise<void>;
-    saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    saveCallerUserProfile(profile: User): Promise<void>;
     searchPostsByMember(memberName: string): Promise<Array<PostView>>;
     setApproval(user: Principal, status: ApprovalStatus): Promise<void>;
     startNewTenure(president: Principal, vicePresident: Principal, secretaryTreasurer: Principal, startDate: Time, endDate: Time): Promise<void>;
     submitPost(category: PostCategory, content: string, image: ExternalBlob | null): Promise<void>;
     toggleLike(postId: bigint): Promise<void>;
+    /**
+     * / Toggle the isPaid flag on an event registration.
+     * / Only Root Admin, President, Vice President, and Secretary Treasurer may call this.
+     */
     togglePaid(eventId: bigint, user: Principal): Promise<void>;
     uploadProfilePic(image: ExternalBlob): Promise<void>;
 }

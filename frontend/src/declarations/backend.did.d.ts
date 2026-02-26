@@ -21,6 +21,7 @@ export interface Comment {
 }
 export interface Event {
   'id' : bigint,
+  'status' : EventStatus,
   'title' : string,
   'creator' : Principal,
   'registrationLimit' : [] | [bigint],
@@ -28,6 +29,8 @@ export interface Event {
   'banner' : [] | [ExternalBlob],
   'description' : string,
 }
+export type EventStatus = { 'pending' : null } |
+  { 'approved' : null };
 export type ExternalBlob = Uint8Array;
 export interface Notification {
   'notificationType' : { 'roleAssigned' : null } |
@@ -63,24 +66,31 @@ export interface PostView {
   'category' : PostCategory,
   'image' : [] | [ExternalBlob],
 }
+export interface Registration {
+  'eventId' : bigint,
+  'user' : Principal,
+  'isPaid' : boolean,
+  'timestamp' : Time,
+}
 export type Role = { 'lt' : null } |
   { 'mc' : null } |
   { 'elt' : null } |
   { 'member' : null } |
   { 'secretaryTreasurer' : null } |
   { 'vicePresident' : null } |
+  { 'rootAdmin' : null } |
   { 'president' : null };
 export type Time = bigint;
-export interface UserApprovalInfo {
-  'status' : ApprovalStatus,
-  'principal' : Principal,
-}
-export interface UserProfile {
+export interface User {
   'isApproved' : boolean,
   'name' : string,
   'role' : Role,
   'email' : string,
   'profilePic' : [] | [ExternalBlob],
+}
+export interface UserApprovalInfo {
+  'status' : ApprovalStatus,
+  'principal' : Principal,
 }
 export type UserRole = { 'admin' : null } |
   { 'user' : null } |
@@ -114,6 +124,10 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addComment' : ActorMethod<[bigint, string], undefined>,
+  /**
+   * / Approve a pending event. Only Root Admin, President, VP, and ST may call this.
+   */
+  'approveEvent' : ActorMethod<[bigint], undefined>,
   'approvePost' : ActorMethod<[bigint], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'assignRole' : ActorMethod<[Principal, Role], undefined>,
@@ -122,14 +136,23 @@ export interface _SERVICE {
     undefined
   >,
   'deletePost' : ActorMethod<[bigint], undefined>,
-  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [User]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getComments' : ActorMethod<[bigint], Array<Comment>>,
+  /**
+   * / Get registrations for an event.
+   * / Only senior leadership can view the full registration list with payment status.
+   */
+  'getEventRegistrations' : ActorMethod<[bigint], Array<Registration>>,
+  /**
+   * / Returns only approved events to regular users.
+   * / Senior leadership (rootAdmin, president, VP, ST) can also see pending events.
+   */
   'getEvents' : ActorMethod<[], Array<Event>>,
   'getMyNotifications' : ActorMethod<[], Array<Notification>>,
   'getMyPosts' : ActorMethod<[], Array<PostView>>,
   'getPosts' : ActorMethod<[[] | [PostCategory]], Array<PostView>>,
-  'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
+  'getUserProfile' : ActorMethod<[Principal], [] | [User]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isCallerApproved' : ActorMethod<[], boolean>,
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
@@ -137,7 +160,7 @@ export interface _SERVICE {
   'registerForEvent' : ActorMethod<[bigint], undefined>,
   'registerUser' : ActorMethod<[string, string], undefined>,
   'requestApproval' : ActorMethod<[], undefined>,
-  'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'saveCallerUserProfile' : ActorMethod<[User], undefined>,
   'searchPostsByMember' : ActorMethod<[string], Array<PostView>>,
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
   'startNewTenure' : ActorMethod<
@@ -149,6 +172,10 @@ export interface _SERVICE {
     undefined
   >,
   'toggleLike' : ActorMethod<[bigint], undefined>,
+  /**
+   * / Toggle the isPaid flag on an event registration.
+   * / Only Root Admin, President, Vice President, and Secretary Treasurer may call this.
+   */
   'togglePaid' : ActorMethod<[bigint, Principal], undefined>,
   'uploadProfilePic' : ActorMethod<[ExternalBlob], undefined>,
 }

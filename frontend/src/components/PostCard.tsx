@@ -10,12 +10,11 @@ import {
   useAddComment,
 } from '../hooks/useQueries';
 import {
-  categoryToLabel,
-  formatTimestamp,
   canApproveContent,
   getInitials,
 } from '../lib/utils';
-import RoleBadge from './RoleBadge';
+import { formatTimestamp } from '../lib/utils';
+import { categoryToLabel } from '../lib/utils';
 import LoadingSpinner from './LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,7 +42,7 @@ export default function PostCard({ post, userRole, isAdmin, currentPrincipal }: 
   const approvePost = useApprovePost();
   const addComment = useAddComment();
   const { data: comments = [], isLoading: commentsLoading } = useGetComments(
-    showComments ? post.id : null
+    showComments ? post.id : undefined
   );
 
   const isLiked = identity

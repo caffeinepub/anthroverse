@@ -31,11 +31,12 @@ export const Role = IDL.Variant({
   'member' : IDL.Null,
   'secretaryTreasurer' : IDL.Null,
   'vicePresident' : IDL.Null,
+  'rootAdmin' : IDL.Null,
   'president' : IDL.Null,
 });
 export const Time = IDL.Int;
 export const ExternalBlob = IDL.Vec(IDL.Nat8);
-export const UserProfile = IDL.Record({
+export const User = IDL.Record({
   'isApproved' : IDL.Bool,
   'name' : IDL.Text,
   'role' : Role,
@@ -48,8 +49,19 @@ export const Comment = IDL.Record({
   'timestamp' : Time,
   'postId' : IDL.Nat,
 });
+export const Registration = IDL.Record({
+  'eventId' : IDL.Nat,
+  'user' : IDL.Principal,
+  'isPaid' : IDL.Bool,
+  'timestamp' : Time,
+});
+export const EventStatus = IDL.Variant({
+  'pending' : IDL.Null,
+  'approved' : IDL.Null,
+});
 export const Event = IDL.Record({
   'id' : IDL.Nat,
+  'status' : EventStatus,
   'title' : IDL.Text,
   'creator' : IDL.Principal,
   'registrationLimit' : IDL.Opt(IDL.Nat),
@@ -136,6 +148,7 @@ export const idlService = IDL.Service({
   '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
   'addComment' : IDL.Func([IDL.Nat, IDL.Text], [], []),
+  'approveEvent' : IDL.Func([IDL.Nat], [], []),
   'approvePost' : IDL.Func([IDL.Nat], [], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'assignRole' : IDL.Func([IDL.Principal, Role], [], []),
@@ -145,9 +158,14 @@ export const idlService = IDL.Service({
       [],
     ),
   'deletePost' : IDL.Func([IDL.Nat], [], []),
-  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(User)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getComments' : IDL.Func([IDL.Nat], [IDL.Vec(Comment)], ['query']),
+  'getEventRegistrations' : IDL.Func(
+      [IDL.Nat],
+      [IDL.Vec(Registration)],
+      ['query'],
+    ),
   'getEvents' : IDL.Func([], [IDL.Vec(Event)], ['query']),
   'getMyNotifications' : IDL.Func([], [IDL.Vec(Notification)], ['query']),
   'getMyPosts' : IDL.Func([], [IDL.Vec(PostView)], ['query']),
@@ -156,11 +174,7 @@ export const idlService = IDL.Service({
       [IDL.Vec(PostView)],
       ['query'],
     ),
-  'getUserProfile' : IDL.Func(
-      [IDL.Principal],
-      [IDL.Opt(UserProfile)],
-      ['query'],
-    ),
+  'getUserProfile' : IDL.Func([IDL.Principal], [IDL.Opt(User)], ['query']),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
   'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
@@ -168,7 +182,7 @@ export const idlService = IDL.Service({
   'registerForEvent' : IDL.Func([IDL.Nat], [], []),
   'registerUser' : IDL.Func([IDL.Text, IDL.Text], [], []),
   'requestApproval' : IDL.Func([], [], []),
-  'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'saveCallerUserProfile' : IDL.Func([User], [], []),
   'searchPostsByMember' : IDL.Func([IDL.Text], [IDL.Vec(PostView)], ['query']),
   'setApproval' : IDL.Func([IDL.Principal, ApprovalStatus], [], []),
   'startNewTenure' : IDL.Func(
@@ -212,11 +226,12 @@ export const idlFactory = ({ IDL }) => {
     'member' : IDL.Null,
     'secretaryTreasurer' : IDL.Null,
     'vicePresident' : IDL.Null,
+    'rootAdmin' : IDL.Null,
     'president' : IDL.Null,
   });
   const Time = IDL.Int;
   const ExternalBlob = IDL.Vec(IDL.Nat8);
-  const UserProfile = IDL.Record({
+  const User = IDL.Record({
     'isApproved' : IDL.Bool,
     'name' : IDL.Text,
     'role' : Role,
@@ -229,8 +244,19 @@ export const idlFactory = ({ IDL }) => {
     'timestamp' : Time,
     'postId' : IDL.Nat,
   });
+  const Registration = IDL.Record({
+    'eventId' : IDL.Nat,
+    'user' : IDL.Principal,
+    'isPaid' : IDL.Bool,
+    'timestamp' : Time,
+  });
+  const EventStatus = IDL.Variant({
+    'pending' : IDL.Null,
+    'approved' : IDL.Null,
+  });
   const Event = IDL.Record({
     'id' : IDL.Nat,
+    'status' : EventStatus,
     'title' : IDL.Text,
     'creator' : IDL.Principal,
     'registrationLimit' : IDL.Opt(IDL.Nat),
@@ -317,6 +343,7 @@ export const idlFactory = ({ IDL }) => {
     '_caffeineStorageUpdateGatewayPrincipals' : IDL.Func([], [], []),
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
     'addComment' : IDL.Func([IDL.Nat, IDL.Text], [], []),
+    'approveEvent' : IDL.Func([IDL.Nat], [], []),
     'approvePost' : IDL.Func([IDL.Nat], [], []),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'assignRole' : IDL.Func([IDL.Principal, Role], [], []),
@@ -326,9 +353,14 @@ export const idlFactory = ({ IDL }) => {
         [],
       ),
     'deletePost' : IDL.Func([IDL.Nat], [], []),
-    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(User)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getComments' : IDL.Func([IDL.Nat], [IDL.Vec(Comment)], ['query']),
+    'getEventRegistrations' : IDL.Func(
+        [IDL.Nat],
+        [IDL.Vec(Registration)],
+        ['query'],
+      ),
     'getEvents' : IDL.Func([], [IDL.Vec(Event)], ['query']),
     'getMyNotifications' : IDL.Func([], [IDL.Vec(Notification)], ['query']),
     'getMyPosts' : IDL.Func([], [IDL.Vec(PostView)], ['query']),
@@ -337,11 +369,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(PostView)],
         ['query'],
       ),
-    'getUserProfile' : IDL.Func(
-        [IDL.Principal],
-        [IDL.Opt(UserProfile)],
-        ['query'],
-      ),
+    'getUserProfile' : IDL.Func([IDL.Principal], [IDL.Opt(User)], ['query']),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'isCallerApproved' : IDL.Func([], [IDL.Bool], ['query']),
     'listApprovals' : IDL.Func([], [IDL.Vec(UserApprovalInfo)], ['query']),
@@ -349,7 +377,7 @@ export const idlFactory = ({ IDL }) => {
     'registerForEvent' : IDL.Func([IDL.Nat], [], []),
     'registerUser' : IDL.Func([IDL.Text, IDL.Text], [], []),
     'requestApproval' : IDL.Func([], [], []),
-    'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'saveCallerUserProfile' : IDL.Func([User], [], []),
     'searchPostsByMember' : IDL.Func(
         [IDL.Text],
         [IDL.Vec(PostView)],

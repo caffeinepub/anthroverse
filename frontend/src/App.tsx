@@ -1,220 +1,196 @@
-import { useEffect, useState } from 'react';
-import { RouterProvider, createRouter, createRootRoute, createRoute, Outlet } from '@tanstack/react-router';
+import { useEffect } from 'react';
+import { createRouter, createRoute, createRootRoute, RouterProvider, Outlet } from '@tanstack/react-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useInternetIdentity } from './hooks/useInternetIdentity';
-import { useGetCallerUserProfile, useGetCallerUserRole, useSaveCallerUserProfile } from './hooks/useQueries';
 import { SidebarProvider } from '@/components/ui/sidebar';
+import { Toaster } from '@/components/ui/sonner';
+import { useInternetIdentity } from './hooks/useInternetIdentity';
+import { useActor } from './hooks/useActor';
+import { useGetCallerUserProfile, useIsCallerApproved } from './hooks/useQueries';
+import { Role } from './backend';
 import AppSidebar from './components/AppSidebar';
-import AppHeader from './components/AppHeader';
+import LoginPage from './pages/LoginPage';
 import FeedPage from './pages/FeedPage';
 import EventsPage from './pages/EventsPage';
-import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import ChapterGrowthPage from './pages/ChapterGrowthPage';
-import { UserRole } from './backend';
+import ProfilePage from './pages/ProfilePage';
+import ProfileSetupModal from './components/ProfileSetupModal';
+import WaitingForApproval from './components/WaitingForApproval';
 
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-
-function ProfileSetupModal({ onComplete }: { onComplete: () => void }) {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const saveProfile = useSaveCallerUserProfile();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !email.trim()) return;
-    await saveProfile.mutateAsync({
-      name: name.trim(),
-      email: email.trim(),
-      role: { member: null } as any,
-      isApproved: false,
-      profilePic: undefined,
-    });
-    onComplete();
-  };
-
+// ─── Loading Screen ───────────────────────────────────────────────────────────
+function LoadingScreen() {
   return (
-    <Dialog open>
-      <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
-        <DialogHeader>
-          <DialogTitle>Welcome! Set Up Your Profile</DialogTitle>
-          <DialogDescription>
-            Please enter your name and email to complete your profile setup.
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
-          <div className="space-y-1">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
-              required
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              required
-            />
-          </div>
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={saveProfile.isPending || !name.trim() || !email.trim()}
-          >
-            {saveProfile.isPending ? 'Saving...' : 'Complete Setup'}
-          </Button>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function AppLayout() {
-  return (
-    <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-background">
-        <AppSidebar />
-        <div className="flex flex-col flex-1 min-w-0">
-          <AppHeader />
-          <main className="flex-1 p-4 md:p-6 overflow-auto">
-            <Outlet />
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
-  );
-}
-
-function AuthenticatedApp() {
-  const { identity } = useInternetIdentity();
-  const queryClient = useQueryClient();
-  const { data: userProfile, isLoading: profileLoading, isFetched } = useGetCallerUserProfile();
-  const { data: userRoleData } = useGetCallerUserRole();
-
-  const isAuthenticated = !!identity;
-
-  const showProfileSetup = isAuthenticated && !profileLoading && isFetched && userProfile === null;
-
-  const rootRoute = createRootRoute({
-    component: AppLayout,
-  });
-
-  const feedRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/',
-    component: FeedPage,
-  });
-
-  const eventsRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/events',
-    component: EventsPage,
-  });
-
-  const profileRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/profile',
-    component: ProfilePage,
-  });
-
-  const adminRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/admin',
-    component: AdminPage,
-  });
-
-  const chapterGrowthRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: '/chapter-growth',
-    component: ChapterGrowthPage,
-  });
-
-  const routeTree = rootRoute.addChildren([
-    feedRoute,
-    eventsRoute,
-    profileRoute,
-    adminRoute,
-    chapterGrowthRoute,
-  ]);
-
-  const router = createRouter({ routeTree });
-
-  return (
-    <>
-      {showProfileSetup && (
-        <ProfileSetupModal onComplete={() => queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] })} />
-      )}
-      <RouterProvider router={router} />
-    </>
-  );
-}
-
-function LoginPage() {
-  const { login, loginStatus, isInitializing } = useInternetIdentity();
-
-  return (
-    <div
-      className="min-h-screen flex items-center justify-center bg-cover bg-center relative"
-      style={{ backgroundImage: 'url(/assets/generated/auth-bg.dim_1200x800.png)' }}
-    >
-      <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" />
-      <div className="relative z-10 flex flex-col items-center gap-8 p-8 rounded-2xl bg-card/90 shadow-2xl border border-border max-w-sm w-full mx-4">
-        <img src="/assets/generated/logo-mark.dim_256x256.png" alt="Logo" className="w-20 h-20 rounded-2xl shadow-lg" />
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold text-foreground font-display">Chapter Hub</h1>
-          <p className="text-muted-foreground text-sm">Your chapter community platform</p>
-        </div>
-        <Button
-          onClick={login}
-          disabled={loginStatus === 'logging-in' || isInitializing}
-          className="w-full"
-          size="lg"
-        >
-          {loginStatus === 'logging-in' ? 'Logging in...' : isInitializing ? 'Initializing...' : 'Login'}
-        </Button>
-        <p className="text-xs text-muted-foreground text-center">
-          Secure authentication powered by Internet Identity
-        </p>
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-6">
+      <img src="/assets/generated/logo-mark.dim_256x256.png" alt="AnthroVerse" className="w-20 h-20 animate-pulse" />
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-muted-foreground text-sm font-medium tracking-wide">Loading AnthroVerse…</p>
       </div>
     </div>
   );
 }
 
-export default function App() {
-  const { identity, isInitializing } = useInternetIdentity();
+// ─── Not Found Redirect ───────────────────────────────────────────────────────
+function NotFoundRedirect() {
+  useEffect(() => {
+    window.history.replaceState(null, '', '/');
+  }, []);
+  return <FeedPage />;
+}
+
+// ─── Router ───────────────────────────────────────────────────────────────────
+const rootRoute = createRootRoute({ component: () => <Outlet /> });
+const feedRoute = createRoute({ getParentRoute: () => rootRoute, path: '/', component: FeedPage });
+const eventsRoute = createRoute({ getParentRoute: () => rootRoute, path: '/events', component: EventsPage });
+const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: '/admin', component: AdminPage });
+const chapterGrowthRoute = createRoute({ getParentRoute: () => rootRoute, path: '/chapter-growth', component: ChapterGrowthPage });
+const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: '/profile', component: ProfilePage });
+const notFoundRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '*',
+  component: NotFoundRedirect,
+});
+
+const routeTree = rootRoute.addChildren([
+  feedRoute,
+  eventsRoute,
+  adminRoute,
+  chapterGrowthRoute,
+  profileRoute,
+  notFoundRoute,
+]);
+const router = createRouter({ routeTree });
+
+declare module '@tanstack/react-router' {
+  interface Register {
+    router: typeof router;
+  }
+}
+
+// ─── App Content ─────────────────────────────────────────────────────────────
+function AppContent() {
+  const { identity, clear, isInitializing } = useInternetIdentity();
+  const { actor, isFetching: actorFetching } = useActor();
+  const qc = useQueryClient();
+
   const isAuthenticated = !!identity;
 
+  const {
+    data: userProfile,
+    isLoading: profileQueryLoading,
+    isFetched: profileQueryFetched,
+  } = useGetCallerUserProfile();
+
+  const {
+    data: isApproved,
+    isLoading: approvalLoading,
+  } = useIsCallerApproved();
+
+  // Combined loading states
+  const profileLoading = actorFetching || profileQueryLoading;
+  const profileFetched = !!actor && profileQueryFetched;
+
+  // Root admin bypass
+  const isRootAdmin = userProfile?.role === Role.rootAdmin;
+
+  const showProfileSetup =
+    isAuthenticated &&
+    !actorFetching &&
+    !profileLoading &&
+    profileFetched &&
+    userProfile === null;
+
+  const showWaitingForApproval =
+    isAuthenticated &&
+    !actorFetching &&
+    !profileLoading &&
+    profileFetched &&
+    userProfile !== null &&
+    !isRootAdmin &&
+    isApproved === false &&
+    !approvalLoading;
+
+  const handleLogout = async () => {
+    await clear();
+    qc.clear();
+  };
+
+  // Phase 1: Internet Identity initializing
   if (isInitializing) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-muted-foreground text-sm">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
+  // Phase 2: Not authenticated
   if (!isAuthenticated) {
     return <LoginPage />;
   }
 
-  return <AuthenticatedApp />;
+  // Phase 3: Actor initializing
+  if (actorFetching) {
+    return <LoadingScreen />;
+  }
+
+  // Phase 4: Actor unavailable
+  if (!actor) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4 p-8">
+        <img src="/assets/generated/logo-mark.dim_256x256.png" alt="AnthroVerse" className="w-16 h-16 opacity-60" />
+        <h2 className="text-xl font-semibold text-foreground">Connection Error</h2>
+        <p className="text-muted-foreground text-sm text-center max-w-sm">
+          Unable to connect to the AnthroVerse network. Please check your connection and try again.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:opacity-90 transition-opacity"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // Phase 5: Profile loading
+  if (profileLoading || !profileFetched) {
+    return <LoadingScreen />;
+  }
+
+  // Phase 6: Profile setup needed
+  if (showProfileSetup) {
+    return (
+      <div className="min-h-screen bg-background">
+        <ProfileSetupModal onComplete={() => qc.invalidateQueries({ queryKey: ['currentUserProfile'] })} />
+      </div>
+    );
+  }
+
+  // Phase 7: Waiting for approval
+  if (showWaitingForApproval) {
+    return (
+      <div className="min-h-screen bg-background">
+        <WaitingForApproval onLogout={handleLogout} />
+      </div>
+    );
+  }
+
+  // Phase 8: Fully authenticated and approved
+  return (
+    <SidebarProvider>
+      <div className="flex min-h-screen w-full bg-background">
+        <AppSidebar userProfile={userProfile ?? null} onLogout={handleLogout} />
+        <main className="flex-1 overflow-auto">
+          <RouterProvider router={router} />
+        </main>
+      </div>
+    </SidebarProvider>
+  );
+}
+
+// ─── Root App ─────────────────────────────────────────────────────────────────
+export default function App() {
+  return (
+    <>
+      <AppContent />
+      <Toaster />
+    </>
+  );
 }
