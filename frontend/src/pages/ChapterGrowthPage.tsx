@@ -1,126 +1,152 @@
-import { useGetCallerUserProfile, useGetPosts } from '../hooks/useQueries';
-import { Role } from '../backend';
+import React from 'react';
+import { TrendingUp, Users, Calendar, Activity, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useGetAllUsers, useGetEvents, useGetPosts, useGetCallerUserProfile } from '../hooks/useQueries';
+import { Role, PostCategory } from '../backend';
 import { canAccessChapterGrowth } from '../utils/permissions';
-import { roleToLabel, formatTimestamp } from '../lib/utils';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { BarChart2, TrendingUp, Users, FileText } from 'lucide-react';
+import { roleToLabel } from '../lib/utils';
+import GroupFeed from '../components/chapter-growth/GroupFeed';
 
 export default function ChapterGrowthPage() {
-  const { identity } = useInternetIdentity();
-  const { data: userProfile } = useGetCallerUserProfile();
-  const { data: posts = [], isLoading: postsLoading } = useGetPosts(undefined);
+  const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
+  const { data: allUsers = [], isLoading: usersLoading } = useGetAllUsers();
+  const { data: events = [], isLoading: eventsLoading } = useGetEvents();
+  const { data: posts = [], isLoading: postsLoading } = useGetPosts();
 
-  const userRole = userProfile?.role;
-  const currentPrincipal = identity?.getPrincipal().toString() ?? '';
+  const userRole: Role = userProfile?.role ?? Role.member;
 
-  if (userRole && !canAccessChapterGrowth(userRole)) {
+  if (profileLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[40vh]">
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (!canAccessChapterGrowth(userRole)) {
+    return (
+      <div className="flex items-center justify-center py-20 text-muted-foreground">
         <div className="text-center">
-          <BarChart2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-40" />
-          <p className="text-muted-foreground">You don't have access to Chapter Growth.</p>
+          <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">Access Restricted</p>
+          <p className="text-sm mt-1">Chapter Growth is available to LT members and above.</p>
         </div>
       </div>
     );
   }
 
-  const totalPosts = posts.length;
-  const myPosts = posts.filter(p => p.author.toString() === currentPrincipal).length;
-  const announcementCount = posts.filter(p => p.category === 'announcements' as any).length;
+  const approvedMembers = allUsers.filter(([, u]) => u.isApproved);
+  const pendingMembers = allUsers.filter(([, u]) => !u.isApproved);
+  const upcomingEvents = events.filter(e => e.status === 'approved');
+  const publishedPosts = posts.filter(p => p.status === 'published');
+
+  const roleDistribution = approvedMembers.reduce<Record<string, number>>((acc, [, u]) => {
+    const label = roleToLabel(u.role);
+    acc[label] = (acc[label] ?? 0) + 1;
+    return acc;
+  }, {});
 
   return (
-    <div className="max-w-4xl mx-auto py-6 px-4 space-y-6">
-      <div className="flex items-center gap-3">
-        <BarChart2 className="w-7 h-7 text-primary" />
-        <h1 className="text-2xl font-bold text-foreground">Chapter Growth</h1>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <FileText className="w-4 h-4 text-primary" />
-            <span className="text-xs font-medium text-muted-foreground">Total Posts</span>
-          </div>
-          <p className="text-2xl font-bold text-foreground">{totalPosts}</p>
+    <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="p-2 rounded-lg bg-primary/10">
+          <TrendingUp className="w-6 h-6 text-primary" />
         </div>
-        <div className="bg-card border border-border rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            <span className="text-xs font-medium text-muted-foreground">My Posts</span>
-          </div>
-          <p className="text-2xl font-bold text-foreground">{myPosts}</p>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 col-span-2 sm:col-span-1">
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="w-4 h-4 text-primary" />
-            <span className="text-xs font-medium text-muted-foreground">Announcements</span>
-          </div>
-          <p className="text-2xl font-bold text-foreground">{announcementCount}</p>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Chapter Growth</h1>
+          <p className="text-sm text-muted-foreground">Analytics and community insights</p>
         </div>
       </div>
 
-      {/* Profile info */}
-      {userProfile && (
-        <div className="bg-card border border-border rounded-xl p-4">
-          <h2 className="text-sm font-semibold text-foreground mb-3">Your Profile</h2>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary">
-              {userProfile.name.charAt(0).toUpperCase()}
+      {/* Stats Grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Users className="w-4 h-4 text-primary" />
+              <span className="text-xs text-muted-foreground font-medium">Members</span>
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">{userProfile.name}</p>
-              <p className="text-xs text-muted-foreground">{roleToLabel(userProfile.role)}</p>
-            </div>
-          </div>
-        </div>
-      )}
+            {usersLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            ) : (
+              <p className="text-2xl font-bold text-foreground">{approvedMembers.length}</p>
+            )}
+          </CardContent>
+        </Card>
 
-      {/* Recent posts */}
-      <div>
-        <h2 className="text-sm font-semibold text-foreground mb-3">Recent Activity</h2>
-        {postsLoading ? (
-          <div className="flex justify-center py-8">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : posts.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">No posts yet.</p>
-        ) : (
-          <div className="space-y-2">
-            {posts.slice(0, 10).map(post => (
-              <div key={post.id.toString()} className="flex items-start gap-3 bg-card border border-border rounded-lg p-3">
-                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
-                  {post.authorName.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-xs font-medium text-foreground">{post.authorName}</span>
-                    <span className="text-xs text-muted-foreground">{formatTimestamp(post.timestamp)}</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground line-clamp-2">{post.content}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Users className="w-4 h-4 text-amber-500" />
+              <span className="text-xs text-muted-foreground font-medium">Pending</span>
+            </div>
+            {usersLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            ) : (
+              <p className="text-2xl font-bold text-foreground">{pendingMembers.length}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Calendar className="w-4 h-4 text-green-500" />
+              <span className="text-xs text-muted-foreground font-medium">Events</span>
+            </div>
+            {eventsLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            ) : (
+              <p className="text-2xl font-bold text-foreground">{upcomingEvents.length}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-1">
+              <Activity className="w-4 h-4 text-blue-500" />
+              <span className="text-xs text-muted-foreground font-medium">Posts</span>
+            </div>
+            {postsLoading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-primary" />
+            ) : (
+              <p className="text-2xl font-bold text-foreground">{publishedPosts.length}</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Footer */}
-      <footer className="text-center text-xs text-muted-foreground pt-4 pb-2">
-        <p>
-          © {new Date().getFullYear()} AnthroVerse — Built with{' '}
-          <span className="text-rose-500">♥</span>{' '}
-          using{' '}
-          <a
-            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname || 'anthroverse')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-foreground"
-          >
-            caffeine.ai
-          </a>
-        </p>
-      </footer>
+      {/* Role Distribution */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Member Role Distribution</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {usersLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(roleDistribution).map(([label, count]) => (
+                <Badge key={label} variant="outline" className="text-sm px-3 py-1">
+                  {label}: <span className="font-bold ml-1">{count}</span>
+                </Badge>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Private Group Feeds */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground">Private Group Feeds</h2>
+        <GroupFeed category={PostCategory.leadershipTeam} groupName="Leadership Team" />
+        <GroupFeed category={PostCategory.membershipCommittee} groupName="Membership Committee" />
+        <GroupFeed category={PostCategory.coreTeam} groupName="Core Team" />
+      </div>
     </div>
   );
 }

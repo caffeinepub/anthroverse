@@ -50,13 +50,13 @@ export default function CreatePostForm({ defaultCategory, onSuccess }: CreatePos
     e.preventDefault();
     if (!content.trim()) return;
 
-    let imageBlob: ExternalBlob | null = null;
+    let imageBlob: ExternalBlob | undefined = undefined;
     if (imageFile) {
       const bytes = new Uint8Array(await imageFile.arrayBuffer());
       imageBlob = ExternalBlob.fromBytes(bytes as Uint8Array<ArrayBuffer>);
     }
 
-    await submitPost.mutateAsync({ category, content: content.trim(), image: imageBlob });
+    await submitPost.mutateAsync({ category, content: content.trim(), imageBlob });
     setContent('');
     setImageFile(null);
     setImagePreview(null);

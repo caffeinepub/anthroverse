@@ -1,48 +1,99 @@
-import { Role } from "../backend";
-import { isExecutiveRole } from "../lib/utils";
+import { Role } from '../backend';
 
-export function canApproveContent(role: Role): boolean {
-  return isExecutiveRole(role);
+/**
+ * Returns true for roles that have executive/admin privileges.
+ */
+export function isExecutiveRole(role: Role): boolean {
+  return (
+    role === Role.president ||
+    role === Role.vicePresident ||
+    role === Role.secretaryTreasurer ||
+    role === Role.rootAdmin
+  );
 }
 
-export function canApprovePost(role: Role): boolean {
-  return isExecutiveRole(role);
+/**
+ * Returns true for roles that are LT or above (includes executives).
+ */
+export function isLTOrAbove(role: Role): boolean {
+  return (
+    role === Role.president ||
+    role === Role.vicePresident ||
+    role === Role.secretaryTreasurer ||
+    role === Role.lt ||
+    role === Role.rootAdmin
+  );
 }
 
+/**
+ * Returns true for roles that can manage users (approve/reject/assign roles).
+ * Executives (president, VP, secretaryTreasurer) and rootAdmin can manage users.
+ */
 export function canManageUsers(role: Role): boolean {
   return isExecutiveRole(role);
 }
 
-export function canPinContent(role: Role): boolean {
+/**
+ * Returns true for roles that can access the admin panel.
+ */
+export function canAccessAdmin(role: Role): boolean {
   return isExecutiveRole(role);
 }
 
+/**
+ * Returns true for roles that can approve posts/announcements.
+ */
+export function canApprovePost(role: Role): boolean {
+  return isExecutiveRole(role);
+}
+
+/**
+ * Returns true for roles that can approve content (alias for canApprovePost).
+ */
+export function canApproveContent(role: Role): boolean {
+  return isExecutiveRole(role);
+}
+
+/**
+ * Returns true for roles that can post announcements.
+ */
 export function canPostAnnouncement(role: Role): boolean {
-  return isExecutiveRole(role) || role === Role.lt || role === Role.mc || role === Role.elt;
+  return isLTOrAbove(role) || role === Role.mc || role === Role.elt;
 }
 
-export function canAccessChapterGrowth(role: Role): boolean {
-  return isExecutiveRole(role) || role === Role.lt;
+/**
+ * Returns true for roles that can create posts.
+ */
+export function canCreatePost(role: Role): boolean {
+  return role !== Role.member || true; // all approved members can post general/fun/requirements
 }
 
-export function canCreateEvent(role: Role): boolean {
-  return isExecutiveRole(role) || role === Role.lt || role === Role.mc || role === Role.elt;
-}
-
-export function isAdminRole(role: Role): boolean {
-  return isExecutiveRole(role);
-}
-
-/** Alias used by AdminPage — same as isExecutiveRole / isAdminRole */
-export function canAccessAdmin(role: Role | undefined): boolean {
-  if (!role) return false;
-  return isExecutiveRole(role);
-}
-
+/**
+ * Returns true for roles that can delete any post (not just their own).
+ */
 export function canDeleteAnyPost(role: Role): boolean {
   return isExecutiveRole(role);
 }
 
-export function canCreatePost(role: Role, _category?: unknown): boolean {
-  return true; // All approved members can create posts (backend enforces category restrictions)
+/**
+ * Returns true for roles that can access chapter growth analytics.
+ */
+export function canAccessChapterGrowth(role: Role): boolean {
+  return isLTOrAbove(role);
+}
+
+/**
+ * Returns true for roles that can access private group feeds.
+ */
+export function canAccessPrivateGroup(role: Role, category: string): boolean {
+  switch (category) {
+    case 'leadershipTeam':
+      return isLTOrAbove(role);
+    case 'membershipCommittee':
+      return isLTOrAbove(role) || role === Role.mc;
+    case 'coreTeam':
+      return isLTOrAbove(role) || role === Role.mc || role === Role.elt;
+    default:
+      return false;
+  }
 }

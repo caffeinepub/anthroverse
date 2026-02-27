@@ -1,56 +1,18 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Web app with user profiles, admin management, and role/post assignment features. Admin account (graph.dust@gmail.com) needs full visibility into member profiles, pending approvals, and content management tools.",
-  "architectural_notes": [
-    "Admin account identified as graph.dust@gmail.com — requires elevated permissions and visibility across all member data"
-  ],
+  "summary": "New project",
+  "architectural_notes": [],
   "known_issues": [
-    "Admin does not see member profiles or pending approvals for first-time logins",
-    "Admin tag not displayed on profile",
-    "No UI for admin to add posts/roles or assign to members",
-    "Profile editing (image, name, category, company, description) not available",
-    "No logout option present"
+    "Approving members is broken — authorization fix in progress"
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-the-admin-account-graph-dust-gmail-com-root-admin-must-see-all-member-profiles-and-pending-approval-requests-in-the-adminpage-including-members-who-have-just-logged-in-for-the-first-time-and-have-not-yet-been-approved-the-pending-approvals-list-and-the-member-profiles-list-must-both-be-populated-and-visible-immediately-when-the-admin-views-the-admin-panel",
-      "title": "The admin account (graph.dust@gmail.com / root admin) must see all member profiles and pending approval requests in the AdminPage, including members who have just logged in for the first time and have not yet been approved. The pending approvals list and the member profiles list must both be populated and visible immediately when the admin views the admin panel.",
-      "reqIds": [
-        "REQ-1"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-the-profile-page-and-profile-card-display-must-show-an-admin-badge-or-tag-for-users-who-have-the-admin-root-role-this-tag-should-be-visible-on-the-admin-s-own-profile-page-and-wherever-their-profile-is-displayed-to-others",
-      "title": "The profile page and profile card/display must show an 'Admin' badge or tag for users who have the admin/root role. This tag should be visible on the admin's own profile page and wherever their profile is displayed to others.",
+      "id": "feature-fix-the-frontend-adminpage-pending-users-approval-flow-so-that-when-the-approve-button-is-clicked-the-authenticated-caller-s-identity-is-correctly-passed-to-the-backend-actor-and-the-ui-reflects-the-updated-approval-state-after-success",
+      "title": "Fix the frontend AdminPage pending-users approval flow so that when the approve button is clicked, the authenticated caller's identity is correctly passed to the backend actor and the UI reflects the updated approval state after success.",
       "reqIds": [
         "REQ-2"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-the-admin-account-must-have-ui-controls-to-a-create-and-submit-posts-directly-from-the-feed-or-admin-panel-b-create-and-assign-roles-to-members-and-c-assign-existing-roles-to-specific-members-these-controls-should-be-accessible-from-the-admin-panel-or-sidebar-admin-section",
-      "title": "The admin account must have UI controls to: (a) create and submit posts directly from the feed or admin panel, (b) create and assign roles to members, and (c) assign existing roles to specific members. These controls should be accessible from the admin panel or sidebar admin section.",
-      "reqIds": [
-        "REQ-3"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-all-user-profiles-must-be-editable-the-profile-edit-form-must-include-fields-for-profile-picture-image-upload-display-name-category-company-name-and-description-bio-these-fields-must-be-saveable-and-persisted-to-the-backend-the-backend-user-type-must-be-updated-to-include-companyname-and-description-fields-if-not-already-present",
-      "title": "All user profiles must be editable. The profile edit form must include fields for: profile picture (image upload), display name, category, company name, and description/bio. These fields must be saveable and persisted to the backend. The backend User type must be updated to include companyName and description fields if not already present.",
-      "reqIds": [
-        "REQ-4"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-add-a-visible-logout-button-accessible-to-all-authenticated-users-the-logout-option-must-be-present-in-the-main-navigation-sidebar-and-or-the-app-header-for-every-logged-in-user-not-only-on-the-waiting-approval-screen",
-      "title": "Add a visible logout button accessible to all authenticated users. The logout option must be present in the main navigation sidebar and/or the app header for every logged-in user, not only on the waiting approval screen.",
-      "reqIds": [
-        "REQ-5"
       ],
       "version": 1
     }
@@ -58,37 +20,20 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Admin (graph.dust@gmail.com) should see all member profiles and pending approvals for first-time logins",
+      "summary": "Fix: unable to approve members",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Profile should display admin tag for admin accounts",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-3",
-      "summary": "Admin should have the ability to add posts/roles and assign them to members",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-4",
-      "summary": "All profiles should be editable with images, names, category, company name, and description",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-5",
-      "summary": "Add a logout option for all users",
-      "reqIds": [],
+      "summary": "Fix the backend authorization logic so that admins/managers with the appropriate role can successfully approve pending members. The approve call must correctly identify the caller's principal and validate their permission to approve users without returning an authorization error.",
+      "reqIds": [
+        "REQ-1"
+      ],
       "status": "pending"
     }
   ],
-  "gameProjectType": "none",
-  "projectName": "AnthroVerse",
+  "projectName": "Fix member approval authorization bug",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

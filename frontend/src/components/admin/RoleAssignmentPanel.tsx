@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { UserCheck, ChevronDown } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Shield, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -12,141 +11,139 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Role } from '../../backend';
-import { Principal } from '@dfinity/principal';
 import { useGetAllUsers, useAssignRole } from '../../hooks/useQueries';
-import { getInitials, roleToLabel, roleBadgeClass, ROOT_ADMIN_EMAIL } from '../../lib/utils';
+import { Role } from '../../backend';
+import { roleToLabel, getInitials, roleBadgeClass } from '../../lib/utils';
+import type { Principal } from '@dfinity/principal';
 
-const ASSIGNABLE_ROLES: { value: Role; label: string }[] = [
-  { value: Role.president, label: 'President' },
-  { value: Role.vicePresident, label: 'Vice President' },
-  { value: Role.secretaryTreasurer, label: 'Secretary Treasurer' },
-  { value: Role.lt, label: 'LT' },
-  { value: Role.mc, label: 'MC' },
-  { value: Role.elt, label: 'ELT' },
-  { value: Role.member, label: 'Member' },
+const ASSIGNABLE_ROLES: Role[] = [
+  Role.lt,
+  Role.mc,
+  Role.elt,
+  Role.member,
 ];
 
 export default function RoleAssignmentPanel() {
   const { data: allUsers = [], isLoading } = useGetAllUsers();
   const assignRoleMutation = useAssignRole();
   const [selectedRoles, setSelectedRoles] = useState<Record<string, Role>>({});
+  const [assigningUsers, setAssigningUsers] = useState<Set<string>>(new Set());
 
-  const approvedUsers = allUsers.filter(
-    ([, user]) => user.isApproved && user.email !== ROOT_ADMIN_EMAIL
+  // Only show approved non-root-admin users
+  const eligibleUsers = allUsers.filter(
+    ([, u]) => u.isApproved && u.email !== 'graph.dust@gmail.com'
   );
 
-  const handleAssignRole = async (principal: Principal, role: Role) => {
+  const handleRoleSelect = (principalStr: string, role: Role) => {
+    setSelectedRoles(prev => ({ ...prev, [principalStr]: role }));
+  };
+
+  const handleAssign = async (principal: Principal) => {
+    const key = principal.toString();
+    const role = selectedRoles[key];
+    if (!role) {
+      toast.error('Please select a role first');
+      return;
+    }
+
+    setAssigningUsers(prev => new Set(prev).add(key));
     try {
-      await assignRoleMutation.mutateAsync({ user: principal, role });
-      toast.success(`Role "${roleToLabel(role)}" assigned successfully`);
-      // Clear the selection for this user
-      setSelectedRoles((prev) => {
+      await assignRoleMutation.mutateAsync({ userPrincipal: principal, role });
+      toast.success(`Role assigned: ${roleToLabel(role)}`);
+      setSelectedRoles(prev => {
         const next = { ...prev };
-        delete next[principal.toString()];
+        delete next[key];
         return next;
       });
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to assign role');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to assign role: ${msg}`);
+    } finally {
+      setAssigningUsers(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
     }
   };
 
   if (isLoading) {
     return (
-      <Card>
-        <CardContent className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-        </CardContent>
-      </Card>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (eligibleUsers.length === 0) {
+    return (
+      <div className="text-center py-12 text-muted-foreground">
+        <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
+        <p className="font-medium">No eligible members</p>
+        <p className="text-sm mt-1">Approve members first before assigning roles</p>
+      </div>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <UserCheck className="h-5 w-5 text-primary" />
-          Assign Roles to Members
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {approvedUsers.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            <UserCheck className="h-12 w-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No approved members yet</p>
-            <p className="text-sm mt-1">Approve members first to assign roles</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {approvedUsers.map(([principal, user]) => {
-              const principalStr = principal.toString();
-              const selectedRole = selectedRoles[principalStr];
+    <div className="space-y-3">
+      {eligibleUsers.map(([principal, user]) => {
+        const key = principal.toString();
+        const isAssigning = assigningUsers.has(key);
+        const selectedRole = selectedRoles[key];
 
-              return (
-                <div
-                  key={principalStr}
-                  className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/20 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-9 w-9">
-                      {user.profilePic ? (
-                        <img
-                          src={user.profilePic.getDirectURL()}
-                          alt={user.name}
-                          className="h-full w-full object-cover rounded-full"
-                        />
-                      ) : (
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
-                          {getInitials(user.name)}
-                        </AvatarFallback>
-                      )}
-                    </Avatar>
-                    <div>
-                      <p className="font-medium text-sm text-foreground">{user.name}</p>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
-                    </div>
-                  </div>
+        return (
+          <div
+            key={key}
+            className="flex items-center justify-between p-4 rounded-lg border border-border bg-card hover:bg-accent/30 transition-colors"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <Avatar className="w-9 h-9 shrink-0">
+                <AvatarFallback className="bg-primary/10 text-primary text-xs font-semibold">
+                  {getInitials(user.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0">
+                <p className="font-medium text-foreground truncate text-sm">{user.name}</p>
+                <Badge className={`text-xs mt-0.5 ${roleBadgeClass(user.role)}`}>
+                  {roleToLabel(user.role)}
+                </Badge>
+              </div>
+            </div>
 
-                  <div className="flex items-center gap-2">
-                    <Badge className={`text-xs ${roleBadgeClass(user.role)}`}>
-                      {roleToLabel(user.role)}
-                    </Badge>
-                    <Select
-                      value={selectedRole ?? ''}
-                      onValueChange={(val) =>
-                        setSelectedRoles((prev) => ({
-                          ...prev,
-                          [principalStr]: val as Role,
-                        }))
-                      }
-                    >
-                      <SelectTrigger className="w-40 h-8 text-xs">
-                        <SelectValue placeholder="Change role..." />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ASSIGNABLE_ROLES.map((r) => (
-                          <SelectItem key={r.value} value={r.value} className="text-xs">
-                            {r.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={!selectedRole || assignRoleMutation.isPending}
-                      onClick={() => selectedRole && handleAssignRole(principal, selectedRole)}
-                      className="h-8 text-xs"
-                    >
-                      Assign
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
+            <div className="flex items-center gap-2 shrink-0 ml-3">
+              <Select
+                value={selectedRole ?? ''}
+                onValueChange={val => handleRoleSelect(key, val as Role)}
+              >
+                <SelectTrigger className="w-32 h-8 text-xs">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {ASSIGNABLE_ROLES.map(role => (
+                    <SelectItem key={role} value={role} className="text-xs">
+                      {roleToLabel(role)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                size="sm"
+                onClick={() => handleAssign(principal)}
+                disabled={!selectedRole || isAssigning}
+                className="h-8 px-3"
+              >
+                {isAssigning ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-3.5 h-3.5" />
+                )}
+              </Button>
+            </div>
           </div>
-        )}
-      </CardContent>
-    </Card>
+        );
+      })}
+    </div>
   );
 }

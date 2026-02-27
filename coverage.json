@@ -1,108 +1,49 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-27T03:58:52.128Z",
+  "generatedAt": "2026-02-27T04:51:47.321Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 5,
-    "implemented": 5,
+    "total": 2,
+    "implemented": 1,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "The admin account (graph.dust@gmail.com / root admin) must see all member profiles and pending approval requests in the AdminPage, including members who have just logged in for the first time and have not yet been approved. The pending approvals list and the member profiles list must both be populated and visible immediately when the admin views the admin panel.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/AdminPage.tsx",
-          "frontend/src/hooks/useQueries.ts"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/AdminPage.tsx",
-          "frontend/src/hooks/useQueries.ts"
-        ]
+        "summary": "Fix the backend authorization logic so that admins/managers with the appropriate role can successfully approve pending members. The approve call must correctly identify the caller's principal and validate their permission to approve users without returning an authorization error.",
+        "status": "unknown",
+        "plannedFiles": [],
+        "matchedFiles": []
       },
       {
         "id": "REQ-2",
-        "summary": "The profile page and profile card/display must show an 'Admin' badge or tag for users who have the admin/root role. This tag should be visible on the admin's own profile page and wherever their profile is displayed to others.",
+        "summary": "Fix the frontend AdminPage pending-users approval flow so that when the approve button is clicked, the authenticated caller's identity is correctly passed to the backend actor and the UI reflects the updated approval state after success.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/components/RoleBadge.tsx",
-          "frontend/src/pages/ProfilePage.tsx",
-          "frontend/src/lib/utils.ts"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/ProfilePage.tsx"
-        ]
-      },
-      {
-        "id": "REQ-3",
-        "summary": "The admin account must have UI controls to: (a) create and submit posts directly from the feed or admin panel, (b) create and assign roles to members, and (c) assign existing roles to specific members. These controls should be accessible from the admin panel or sidebar admin section.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/AdminPage.tsx",
-          "frontend/src/components/admin/RoleAssignmentPanel.tsx",
-          "frontend/src/components/AppSidebar.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/AdminPage.tsx",
-          "frontend/src/components/admin/RoleAssignmentPanel.tsx",
-          "frontend/src/components/AppSidebar.tsx"
-        ]
-      },
-      {
-        "id": "REQ-4",
-        "summary": "All user profiles must be editable. The profile edit form must include fields for: profile picture (image upload), display name, category, company name, and description/bio. These fields must be saveable and persisted to the backend. The backend User type must be updated to include companyName and description fields if not already present.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/ProfilePage.tsx",
           "frontend/src/hooks/useQueries.ts",
-          "frontend/src/components/auth/SignupForm.tsx"
+          "frontend/src/pages/AdminPage.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/ProfilePage.tsx",
           "frontend/src/hooks/useQueries.ts",
-          "frontend/src/components/auth/SignupForm.tsx"
-        ]
-      },
-      {
-        "id": "REQ-5",
-        "summary": "Add a visible logout button accessible to all authenticated users. The logout option must be present in the main navigation sidebar and/or the app header for every logged-in user, not only on the waiting approval screen.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/components/AppSidebar.tsx",
-          "frontend/src/components/AppHeader.tsx",
-          "frontend/src/components/auth/WaitingForApproval.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/components/AppSidebar.tsx"
+          "frontend/src/pages/AdminPage.tsx"
         ]
       }
     ]
   },
   "changedFiles": [
     "backend/main.mo",
-    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/App.tsx",
-    "frontend/src/backend.d.ts",
-    "frontend/src/backend.ts",
-    "frontend/src/components/AppSidebar.tsx",
-    "frontend/src/components/WaitingForApproval.tsx",
     "frontend/src/components/admin/RoleAssignmentPanel.tsx",
-    "frontend/src/components/auth/SignupForm.tsx",
-    "frontend/src/components/layout/MainLayout.tsx",
-    "frontend/src/declarations/backend.did.d.ts",
-    "frontend/src/declarations/backend.did.js",
+    "frontend/src/components/feed/CreatePostForm.tsx",
     "frontend/src/hooks/useQueries.ts",
     "frontend/src/pages/AdminPage.tsx",
     "frontend/src/pages/EventsPage.tsx",
-    "frontend/src/pages/ProfilePage.tsx",
-    "frontend/src/pages/ProfileSetupPage.tsx",
+    "frontend/src/pages/FeedPage.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

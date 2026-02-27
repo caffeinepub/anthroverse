@@ -126,109 +126,65 @@ export interface _SERVICE {
   '_caffeineStorageUpdateGatewayPrincipals' : ActorMethod<[], undefined>,
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addComment' : ActorMethod<[bigint, string], undefined>,
-  /**
-   * / Approve a pending event. Only Executive Core + MasterAdmin may approve.
-   */
   'approveEvent' : ActorMethod<[bigint], undefined>,
   /**
-   * / Approve a pending post. Only Executive Core + MasterAdmin may approve.
+   * / Approve or reject a pending user registration.
+   * / Permitted callers: AccessControl admins (#admin role) OR executive core/master admin.
    */
+  'approveOrRejectUser' : ActorMethod<
+    [Principal, ApprovalStatus],
+    {
+      'updatedUsers' : Array<[Principal, User]>,
+      'approvals' : Array<UserApprovalInfo>,
+    }
+  >,
   'approvePost' : ActorMethod<[bigint], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
-  /**
-   * / Assign a role to a user.
-   * / Rules:
-   * /   - Only MasterAdmin can assign President, VP, SecretaryTreasurer.
-   * /   - Executive Core + MasterAdmin can assign other roles (LT, MC, ELT, Member).
-   * /   - No one can change the MasterAdmin's role.
-   */
   'assignRole' : ActorMethod<[Principal, Role], undefined>,
-  /**
-   * / Create an event.
-   * / Executive Core + MasterAdmin publish directly; others submit as pending.
-   */
   'createEvent' : ActorMethod<
     [string, string, Time, [] | [ExternalBlob], [] | [bigint]],
     undefined
   >,
-  /**
-   * / Delete a comment.
-   * / Rules:
-   * /   - Executive Core + MasterAdmin can delete any comment.
-   * /   - Regular users can only delete their own comments.
-   */
   'deleteComment' : ActorMethod<[bigint, bigint], undefined>,
-  /**
-   * / Delete a post.
-   * / Rules:
-   * /   - Executive Core + MasterAdmin can delete any post.
-   * /   - Regular users can only delete their own posts.
-   */
   'deletePost' : ActorMethod<[bigint], undefined>,
-  /**
-   * / Get all users. Only Executive Core + MasterAdmin.
-   */
   'getAllUsers' : ActorMethod<[], Array<[Principal, User]>>,
-  /**
-   * / Returns the caller's full profile.
-   * / Requires the caller to be authenticated (non-anonymous) with at least #user permission,
-   * / or to be the MasterAdmin.
-   */
   'getCallerUserProfile' : ActorMethod<[], [] | [User]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getComments' : ActorMethod<[bigint], Array<Comment>>,
-  /**
-   * / Get event registrations. Only Executive Core + MasterAdmin.
-   */
   'getEventRegistrations' : ActorMethod<[bigint], Array<Registration>>,
-  /**
-   * / Get events. Regular members see only approved events.
-   * / Executive Core + MasterAdmin see all (including pending).
-   */
   'getEvents' : ActorMethod<[], Array<Event>>,
   'getMyNotifications' : ActorMethod<[], Array<Notification>>,
   'getMyPosts' : ActorMethod<[], Array<PostView>>,
   'getMyRegistrations' : ActorMethod<[], Array<Registration>>,
   /**
-   * / Get pending events. Only Executive Core + MasterAdmin.
+   * / View pending approvals.
+   * / Permitted callers: AccessControl admins (#admin role) OR executive core / master admin.
    */
+  'getPendingApprovals' : ActorMethod<
+    [],
+    {
+      'users' : Array<[Principal, User]>,
+      'approvals' : Array<UserApprovalInfo>,
+    }
+  >,
   'getPendingEvents' : ActorMethod<[], Array<Event>>,
-  /**
-   * / Get pending posts. Only Executive Core + MasterAdmin may view pending posts.
-   */
   'getPendingPosts' : ActorMethod<[], Array<PostView>>,
   /**
-   * / Get pending (unapproved) users. Only MasterAdmin.
+   * / View pending (unapproved) users.
+   * / Permitted callers: AccessControl admins (#admin role) OR executive core / master admin.
    */
   'getPendingUsers' : ActorMethod<[], Array<[Principal, User]>>,
   'getPosts' : ActorMethod<[[] | [PostCategory]], Array<PostView>>,
-  /**
-   * / Get another user's profile.
-   * / Any approved user can view any other user's profile (needed for community features).
-   * / Anonymous users cannot view profiles.
-   */
   'getUserProfile' : ActorMethod<[Principal], [] | [User]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isCallerApproved' : ActorMethod<[], boolean>,
-  /**
-   * / List pending approvals. Only MasterAdmin may view.
-   */
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
   'markNotificationsRead' : ActorMethod<[], undefined>,
   'registerForEvent' : ActorMethod<[bigint], undefined>,
   'registerUser' : ActorMethod<[string, string], undefined>,
   'requestApproval' : ActorMethod<[], undefined>,
-  /**
-   * / Save the caller's own profile.
-   * / Requires the caller to be authenticated (non-anonymous) with at least #user permission,
-   * / or to be the MasterAdmin.
-   * / Callers cannot escalate their own role or approval status.
-   */
   'saveCallerUserProfile' : ActorMethod<[User], undefined>,
   'searchPostsByMember' : ActorMethod<[string], Array<PostView>>,
-  /**
-   * / Approve or reject a user. Only MasterAdmin may approve users.
-   */
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
   'startNewTenure' : ActorMethod<
     [Principal, Principal, Principal, Time, Time],
@@ -239,9 +195,6 @@ export interface _SERVICE {
     undefined
   >,
   'toggleLike' : ActorMethod<[bigint], undefined>,
-  /**
-   * / Mark payment status. Only Executive Core + MasterAdmin.
-   */
   'togglePaid' : ActorMethod<[bigint, Principal], undefined>,
   'uploadProfilePic' : ActorMethod<[ExternalBlob], undefined>,
 }

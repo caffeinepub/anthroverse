@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createRouter, RouterProvider, createRootRoute, createRoute, Outlet } from "@tanstack/react-router";
+import { createRouter, RouterProvider, createRootRoute, createRoute } from "@tanstack/react-router";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useGetCallerUserProfile } from "./hooks/useQueries";
 import { ROOT_ADMIN_EMAIL } from "./lib/utils";
@@ -11,6 +11,7 @@ import EventsPage from "./pages/EventsPage";
 import ProfilePage from "./pages/ProfilePage";
 import AdminPage from "./pages/AdminPage";
 import ChapterMeetingPage from "./pages/ChapterMeetingPage";
+import ChapterGrowthPage from "./pages/ChapterGrowthPage";
 import ProfileSetupModal from "./components/ProfileSetupModal";
 import WaitingForApproval from "./components/WaitingForApproval";
 import { Toaster } from "./components/ui/sonner";
@@ -23,8 +24,6 @@ const queryClient = new QueryClient({
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
-// MainLayout uses <Outlet /> internally via SidebarInset, so the root route
-// uses it as the layout component directly — no children prop needed.
 const rootRoute = createRootRoute({
   component: MainLayout,
 });
@@ -34,8 +33,16 @@ const eventsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/event
 const meetingRoute = createRoute({ getParentRoute: () => rootRoute, path: "/meeting", component: ChapterMeetingPage });
 const profileRoute = createRoute({ getParentRoute: () => rootRoute, path: "/profile", component: ProfilePage });
 const adminRoute = createRoute({ getParentRoute: () => rootRoute, path: "/admin", component: AdminPage });
+const chapterGrowthRoute = createRoute({ getParentRoute: () => rootRoute, path: "/chapter-growth", component: ChapterGrowthPage });
 
-const routeTree = rootRoute.addChildren([feedRoute, eventsRoute, meetingRoute, profileRoute, adminRoute]);
+const routeTree = rootRoute.addChildren([
+  feedRoute,
+  eventsRoute,
+  meetingRoute,
+  profileRoute,
+  adminRoute,
+  chapterGrowthRoute,
+]);
 
 const router = createRouter({ routeTree });
 
@@ -60,7 +67,11 @@ function InnerApp() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#F7F7FB" }}>
         <div className="text-center">
-          <img src="/assets/generated/anthroverse-logo.dim_256x256.png" alt="AnthroVerse" className="w-20 h-20 mx-auto mb-4 rounded-full object-cover" />
+          <img
+            src="/assets/generated/anthroverse-logo.dim_256x256.png"
+            alt="AnthroVerse"
+            className="w-20 h-20 mx-auto mb-4 rounded-full object-cover"
+          />
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="font-semibold text-primary">Loading AnthroVerse…</p>
         </div>

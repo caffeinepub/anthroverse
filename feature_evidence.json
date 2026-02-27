@@ -2,32 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-the-admin-account-graph-dust-gmail-com-root-admin-must-see-all-member-profiles-and-pending-approval-requests-in-the-adminpage-including-members-who-have-just-logged-in-for-the-first-time-and-have-not-yet-been-approved-the-pending-approvals-list-and-the-member-profiles-list-must-both-be-populated-and-visible-immediately-when-the-admin-views-the-admin-panel",
-      "featureTitle": "The admin account (graph.dust@gmail.com / root admin) must see all member profiles and pending approval requests in the AdminPage, including members who have just logged in for the first time and have not yet been approved. The pending approvals list and the member profiles list must both be populated and visible immediately when the admin views the admin panel.",
+      "featureId": "feature-fix-the-frontend-adminpage-pending-users-approval-flow-so-that-when-the-approve-button-is-clicked-the-authenticated-caller-s-identity-is-correctly-passed-to-the-backend-actor-and-the-ui-reflects-the-updated-approval-state-after-success",
+      "featureTitle": "Fix the frontend AdminPage pending-users approval flow so that when the approve button is clicked, the authenticated caller's identity is correctly passed to the backend actor and the UI reflects the updated approval state after success.",
       "files": [
         "frontend/src/hooks/useQueries.ts",
         "frontend/src/pages/AdminPage.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-1"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-the-profile-page-and-profile-card-display-must-show-an-admin-badge-or-tag-for-users-who-have-the-admin-root-role-this-tag-should-be-visible-on-the-admin-s-own-profile-page-and-wherever-their-profile-is-displayed-to-others",
-      "featureTitle": "The profile page and profile card/display must show an 'Admin' badge or tag for users who have the admin/root role. This tag should be visible on the admin's own profile page and wherever their profile is displayed to others.",
-      "files": [
-        "frontend/src/pages/ProfilePage.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -41,73 +20,6 @@
       ],
       "testIds": [
         "REQ-2"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-the-admin-account-must-have-ui-controls-to-a-create-and-submit-posts-directly-from-the-feed-or-admin-panel-b-create-and-assign-roles-to-members-and-c-assign-existing-roles-to-specific-members-these-controls-should-be-accessible-from-the-admin-panel-or-sidebar-admin-section",
-      "featureTitle": "The admin account must have UI controls to: (a) create and submit posts directly from the feed or admin panel, (b) create and assign roles to members, and (c) assign existing roles to specific members. These controls should be accessible from the admin panel or sidebar admin section.",
-      "files": [
-        "frontend/src/components/AppSidebar.tsx",
-        "frontend/src/components/admin/RoleAssignmentPanel.tsx",
-        "frontend/src/pages/AdminPage.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-3"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-all-user-profiles-must-be-editable-the-profile-edit-form-must-include-fields-for-profile-picture-image-upload-display-name-category-company-name-and-description-bio-these-fields-must-be-saveable-and-persisted-to-the-backend-the-backend-user-type-must-be-updated-to-include-companyname-and-description-fields-if-not-already-present",
-      "featureTitle": "All user profiles must be editable. The profile edit form must include fields for: profile picture (image upload), display name, category, company name, and description/bio. These fields must be saveable and persisted to the backend. The backend User type must be updated to include companyName and description fields if not already present.",
-      "files": [
-        "frontend/src/components/auth/SignupForm.tsx",
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/ProfilePage.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-4"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-add-a-visible-logout-button-accessible-to-all-authenticated-users-the-logout-option-must-be-present-in-the-main-navigation-sidebar-and-or-the-app-header-for-every-logged-in-user-not-only-on-the-waiting-approval-screen",
-      "featureTitle": "Add a visible logout button accessible to all authenticated users. The logout option must be present in the main navigation sidebar and/or the app header for every logged-in user, not only on the waiting approval screen.",
-      "files": [
-        "frontend/src/components/AppSidebar.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "blob-storage@4.0.0",
-        "user-approval@3.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-5"
       ],
       "confidence": "high"
     }

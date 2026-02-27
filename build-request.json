@@ -1,114 +1,55 @@
 {
   "kind": "build_request",
-  "title": "Admin visibility, profile editing, role/post management, and logout fixes",
-  "projectName": "AnthroVerse",
+  "title": "Fix member approval authorization bug",
   "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "The admin account (graph.dust@gmail.com / root admin) must see all member profiles and pending approval requests in the AdminPage, including members who have just logged in for the first time and have not yet been approved. The pending approvals list and the member profiles list must both be populated and visible immediately when the admin views the admin panel.",
-      "target": "frontend",
+      "text": "Fix the backend authorization logic so that admins/managers with the appropriate role can successfully approve pending members. The approve call must correctly identify the caller's principal and validate their permission to approve users without returning an authorization error.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-7"
+          "msg-recent"
         ],
         "quotes": [
-          "graph.dust@gmail.com does not see any profiles or pending approvals for members who log in for the first time."
+          "not able to approve",
+          "Approving members is broken — authorization fix in progress"
         ]
       },
       "acceptanceCriteria": [
-        "When a new member logs in for the first time and submits their profile, their entry appears in the admin's pending approvals list without requiring a page reload.",
-        "The admin panel lists all registered member profiles, including those with pending status.",
-        "The AdminPage correctly fetches and displays both pending and approved users for the root admin account."
+        "An admin or manager can call the approve user endpoint without receiving an authorization error",
+        "The approved user's status transitions from pending to approved in the backend state",
+        "Unauthorized principals (non-admin/non-manager roles) are still correctly rejected"
       ]
     },
     {
       "id": "REQ-2",
-      "text": "The profile page and profile card/display must show an 'Admin' badge or tag for users who have the admin/root role. This tag should be visible on the admin's own profile page and wherever their profile is displayed to others.",
+      "text": "Fix the frontend AdminPage pending-users approval flow so that when the approve button is clicked, the authenticated caller's identity is correctly passed to the backend actor and the UI reflects the updated approval state after success.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-7"
+          "msg-recent"
         ],
         "quotes": [
-          "Profile does not show admin tag."
+          "not able to approve",
+          "the frontend AdminPage pending-users approval flow correctly passes the authenticated caller's identity to the backend"
         ]
       },
       "acceptanceCriteria": [
-        "The ProfilePage for the admin account displays a visible 'Admin' tag/badge near the user's name or role.",
-        "The RoleBadge component renders an 'Admin' label when the user's role is the root admin role.",
-        "Non-admin profiles do not display the admin tag."
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "The admin account must have UI controls to: (a) create and submit posts directly from the feed or admin panel, (b) create and assign roles to members, and (c) assign existing roles to specific members. These controls should be accessible from the admin panel or sidebar admin section.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-7"
-        ],
-        "quotes": [
-          "This account also does not see anywhere to add posts/roles and assign to members."
-        ]
-      },
-      "acceptanceCriteria": [
-        "The admin can see and use the CreatePostForm (or equivalent) to submit a new post.",
-        "The admin can see the RoleAssignmentPanel and use it to assign roles to any approved member.",
-        "The admin panel provides controls to create new roles or select from existing roles and assign them to members.",
-        "All admin-only controls are hidden from non-admin users."
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "text": "All user profiles must be editable. The profile edit form must include fields for: profile picture (image upload), display name, category, company name, and description/bio. These fields must be saveable and persisted to the backend. The backend User type must be updated to include companyName and description fields if not already present.",
-      "target": "both",
-      "source": {
-        "messageIds": [
-          "msg-7"
-        ],
-        "quotes": [
-          "All profiles should be editable with images, names, category, company name and description."
-        ]
-      },
-      "acceptanceCriteria": [
-        "The ProfilePage shows an edit form or inline edit controls for: profile picture, name, category, company name, and description.",
-        "Submitting the edit form saves the changes to the backend and reflects them immediately on the profile page.",
-        "The backend User record stores companyName and description fields.",
-        "The updateProfile (or equivalent) backend function accepts and persists companyName and description.",
-        "All authenticated users (not just admins) can edit their own profiles."
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "text": "Add a visible logout button accessible to all authenticated users. The logout option must be present in the main navigation sidebar and/or the app header for every logged-in user, not only on the waiting approval screen.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-7"
-        ],
-        "quotes": [
-          "No option is there to log out."
-        ]
-      },
-      "acceptanceCriteria": [
-        "A logout button is visible in the AppSidebar for all authenticated users.",
-        "Clicking the logout button calls the Internet Identity logout method and returns the user to the login/auth screen.",
-        "The logout button is accessible on both desktop and mobile layouts.",
-        "The logout option is not limited to the WaitingForApproval screen."
+        "Clicking the approve button on a pending user in AdminPage triggers the backend call with the correct authenticated identity",
+        "On success, the pending user is removed from the pending list and appears in the approved members list",
+        "On failure, a clear error toast or message is shown to the admin"
       ]
     }
   ],
   "constraints": [
-    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui.",
-    "Root admin detection must continue to use the graph.dust@gmail.com email as the existing bypass logic dictates.",
-    "Backend changes must remain within the single main actor file (backend/main.mo)."
+    "Do not change any immutable frontend paths (useInternetIdentity.ts, useActor.ts, main.tsx, ui components)",
+    "Keep all backend logic within the single main actor in backend/main.mo"
   ],
   "nonGoals": [
-    "Adding new authentication providers beyond Internet Identity.",
-    "Redesigning the overall visual theme or layout.",
-    "Implementing real-time notifications or WebSocket-based updates.",
-    "Adding new event or tenure management features."
+    "Adding new user roles or permissions beyond what already exists",
+    "Changing the overall approval workflow UI layout",
+    "Fixing any other unrelated authorization flows"
   ],
   "imageRequirements": {
     "required": [],

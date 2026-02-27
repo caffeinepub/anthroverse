@@ -1,331 +1,342 @@
-import React, { useState } from "react";
-import {
-  Calendar, Plus, Loader2, CheckCircle, X, Users,
-  CreditCard, Clock,
-} from "lucide-react";
+import React, { useState } from 'react';
+import { Calendar, Plus, X, CheckCircle, Users, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { toast } from 'sonner';
 import {
   useGetEvents,
   useGetPendingEvents,
-  useCreateEvent,
   useApproveEvent,
   useRegisterForEvent,
   useGetMyRegistrations,
   useGetEventRegistrations,
   useTogglePaid,
   useGetCallerUserProfile,
-} from "../hooks/useQueries";
-import { Event, Role, EventStatus } from "../backend";
-import { formatTimestamp, isExecutiveRole, canCreateEvent } from "../lib/utils";
-import { toast } from "sonner";
-import { useInternetIdentity } from "../hooks/useInternetIdentity";
+} from '../hooks/useQueries';
+import { Role, type Event } from '../backend';
+import { isExecutiveRole, isLTOrAbove } from '../utils/permissions';
+import CreateEventForm from '../components/events/CreateEventForm';
+import { ExternalBlob } from '../backend';
+
+function formatDate(timestamp: bigint): string {
+  const date = new Date(Number(timestamp) / 1_000_000);
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+interface EventCardProps {
+  event: Event;
+  userRole: Role;
+  isRegistered: boolean;
+  onRegister: (id: bigint) => void;
+  onApprove?: (id: bigint) => void;
+  isApproving?: boolean;
+  isRegistering?: boolean;
+  onViewRegistrations?: (event: Event) => void;
+}
+
+function EventCard({
+  event,
+  userRole,
+  isRegistered,
+  onRegister,
+  onApprove,
+  isApproving,
+  isRegistering,
+  onViewRegistrations,
+}: EventCardProps) {
+  const bannerUrl = event.banner
+    ? (event.banner as ExternalBlob).getDirectURL()
+    : null;
+
+  return (
+    <Card className="overflow-hidden">
+      {bannerUrl && (
+        <div className="h-40 overflow-hidden">
+          <img src={bannerUrl} alt={event.title} className="w-full h-full object-cover" />
+        </div>
+      )}
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h3 className="font-semibold text-foreground text-base leading-tight">{event.title}</h3>
+          <Badge
+            variant={event.status === 'approved' ? 'default' : 'secondary'}
+            className="text-xs shrink-0"
+          >
+            {event.status === 'approved' ? 'Approved' : 'Pending'}
+          </Badge>
+        </div>
+        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{event.description}</p>
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
+          <Calendar className="w-3.5 h-3.5" />
+          <span>{formatDate(event.date)}</span>
+        </div>
+        {event.registrationLimit && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-3">
+            <Users className="w-3.5 h-3.5" />
+            <span>Limit: {event.registrationLimit.toString()}</span>
+          </div>
+        )}
+        <div className="flex flex-wrap gap-2 mt-3">
+          {event.status === 'approved' && !isRegistered && (
+            <Button
+              size="sm"
+              onClick={() => onRegister(event.id)}
+              disabled={isRegistering}
+              className="flex-1 min-w-[100px]"
+            >
+              {isRegistering ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+              Register
+            </Button>
+          )}
+          {isRegistered && (
+            <Badge variant="outline" className="text-green-600 border-green-300">
+              <CheckCircle className="w-3 h-3 mr-1" />
+              Registered
+            </Badge>
+          )}
+          {isExecutiveRole(userRole) && event.status === 'pending' && onApprove && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onApprove(event.id)}
+              disabled={isApproving}
+              className="text-green-600 border-green-300 hover:bg-green-50"
+            >
+              {isApproving ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <CheckCircle className="w-4 h-4 mr-1" />}
+              Approve
+            </Button>
+          )}
+          {isExecutiveRole(userRole) && onViewRegistrations && (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => onViewRegistrations(event)}
+              className="flex items-center gap-1"
+            >
+              <Users className="w-4 h-4" />
+              Registrations
+            </Button>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function EventsPage() {
-  const { identity } = useInternetIdentity();
   const { data: userProfile } = useGetCallerUserProfile();
-  const { data: events = [], isLoading } = useGetEvents();
+  const userRole = userProfile?.role ?? Role.member;
+
+  const { data: events = [], isLoading: eventsLoading } = useGetEvents();
   const { data: pendingEvents = [] } = useGetPendingEvents();
   const { data: myRegistrations = [] } = useGetMyRegistrations();
-  const [showCreate, setShowCreate] = useState(false);
+  const approveEventMutation = useApproveEvent();
+  const registerMutation = useRegisterForEvent();
+
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [form, setForm] = useState({ title: "", description: "", date: "", time: "", venue: "" });
+  const [approvingId, setApprovingId] = useState<bigint | null>(null);
+  const [registeringId, setRegisteringId] = useState<bigint | null>(null);
 
-  const createEvent = useCreateEvent();
-  const approveEvent = useApproveEvent();
-  const registerForEvent = useRegisterForEvent();
-  const togglePaid = useTogglePaid();
-
-  // Pass undefined instead of null to match the updated hook signature
-  const { data: eventRegistrations = [] } = useGetEventRegistrations(
-    selectedEvent ? selectedEvent.id : undefined
+  // Pass null (not undefined) when no event is selected — matches bigint | null signature
+  const { data: registrations = [] } = useGetEventRegistrations(
+    selectedEvent ? selectedEvent.id : null
   );
+  const togglePaidMutation = useTogglePaid();
 
-  const userRole = userProfile?.role ?? Role.member;
-  const isExec = isExecutiveRole(userRole);
-  const canCreate = canCreateEvent(userRole);
-  const callerPrincipal = identity?.getPrincipal().toString();
+  const registeredEventIds = new Set(myRegistrations.map(r => r.eventId.toString()));
 
-  const isRegistered = (eventId: bigint) =>
-    myRegistrations.some((r) => r.eventId === eventId);
-
-  const handleCreateEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.title || !form.date) return;
-    try {
-      const dateTime = new Date(`${form.date}T${form.time || "00:00"}`);
-      await createEvent.mutateAsync({
-        title: form.title,
-        description: form.description,
-        date: BigInt(dateTime.getTime()) * 1_000_000n,
-        banner: null,
-        registrationLimit: null,
-      });
-      setForm({ title: "", description: "", date: "", time: "", venue: "" });
-      setShowCreate(false);
-      toast.success(isExec ? "Event published!" : "Event submitted for approval");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to create event");
-    }
-  };
+  const canCreateEvent = isLTOrAbove(userRole) || userRole === Role.mc || userRole === Role.elt;
 
   const handleApprove = async (eventId: bigint) => {
+    setApprovingId(eventId);
     try {
-      await approveEvent.mutateAsync(eventId);
-      toast.success("Event approved!");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to approve event");
+      await approveEventMutation.mutateAsync(eventId);
+      toast.success('Event approved');
+    } catch (err: unknown) {
+      toast.error('Failed to approve event');
+    } finally {
+      setApprovingId(null);
     }
   };
 
   const handleRegister = async (eventId: bigint) => {
+    setRegisteringId(eventId);
     try {
-      await registerForEvent.mutateAsync(eventId);
-      toast.success("Registered successfully!");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to register");
+      await registerMutation.mutateAsync(eventId);
+      toast.success('Registered successfully!');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error(`Registration failed: ${msg}`);
+    } finally {
+      setRegisteringId(null);
     }
   };
 
-  const handleTogglePaid = async (eventId: bigint, userPrincipal: string) => {
+  const handleTogglePaid = async (eventId: bigint, user: import('@dfinity/principal').Principal) => {
     try {
-      const { Principal } = await import("@dfinity/principal");
-      await togglePaid.mutateAsync({ eventId, user: Principal.fromText(userPrincipal) });
-      toast.success("Payment status updated");
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to update payment");
+      await togglePaidMutation.mutateAsync({ eventId, user });
+      toast.success('Payment status updated');
+    } catch {
+      toast.error('Failed to update payment status');
     }
   };
 
   return (
-    <div className="space-y-4 p-4 max-w-4xl mx-auto">
+    <div className="max-w-4xl mx-auto px-4 py-6">
       {/* Header */}
-      <div className="bg-card rounded-xl border border-border p-5 flex items-center justify-between">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Events</h1>
-          <p className="text-sm text-muted-foreground">Chapter events and activities</p>
+          <h1 className="text-2xl font-bold text-foreground">Events</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">Upcoming community events</p>
         </div>
-        {canCreate && (
-          <button
-            onClick={() => setShowCreate(!showCreate)}
-            className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-opacity"
+        {canCreateEvent && (
+          <Button
+            size="sm"
+            variant={showCreateForm ? 'outline' : 'default'}
+            onClick={() => setShowCreateForm(v => !v)}
+            className="flex items-center gap-1.5"
           >
-            <Plus className="w-4 h-4" />
-            {showCreate ? "Cancel" : "Create Event"}
-          </button>
+            {showCreateForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            {showCreateForm ? 'Cancel' : 'Create Event'}
+          </Button>
         )}
       </div>
 
       {/* Create Event Form */}
-      {showCreate && (
-        <div className="bg-card rounded-xl border border-border p-5">
-          <h2 className="font-semibold text-foreground mb-4">Create New Event</h2>
-          <form onSubmit={handleCreateEvent} className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Title *</label>
-              <input
-                type="text"
-                value={form.title}
-                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Event title"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Description</label>
-              <textarea
-                value={form.description}
-                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                rows={3}
-                placeholder="Event description"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Date *</label>
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-1">Time</label>
-                <input
-                  type="time"
-                  value={form.time}
-                  onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 pt-1">
-              <button
-                type="submit"
-                disabled={createEvent.isPending}
-                className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {createEvent.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                {createEvent.isPending ? "Creating…" : "Create Event"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowCreate(false)}
-                className="px-4 py-2 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+      {showCreateForm && (
+        <div className="mb-6">
+          <CreateEventForm onSuccess={() => setShowCreateForm(false)} />
         </div>
       )}
 
-      {/* Pending Events (exec only) */}
-      {isExec && pendingEvents.length > 0 && (
-        <div className="bg-card rounded-xl border border-amber-200 dark:border-amber-800 p-5">
-          <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Clock className="w-4 h-4 text-amber-500" />
-            Pending Approval ({pendingEvents.length})
-          </h2>
-          <div className="space-y-2">
-            {pendingEvents.map(event => (
-              <div key={event.id.toString()} className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-                <div>
-                  <p className="font-medium text-sm text-foreground">{event.title}</p>
-                  <p className="text-xs text-muted-foreground">{formatTimestamp(event.date)}</p>
-                </div>
-                <button
-                  onClick={() => handleApprove(event.id)}
-                  disabled={approveEvent.isPending}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-                >
-                  <CheckCircle className="w-3 h-3" />
-                  Approve
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Events List */}
-      {isLoading ? (
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      ) : events.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="font-medium">No events yet</p>
-          <p className="text-sm mt-1">Check back later for upcoming events</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {events.map(event => {
-            const registered = isRegistered(event.id);
-            const isSelected = selectedEvent?.id === event.id;
-
-            return (
-              <div key={event.id.toString()} className="bg-card rounded-xl border border-border overflow-hidden">
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-semibold text-foreground">{event.title}</h3>
-                        {event.status === EventStatus.pending && (
-                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
-                            Pending
-                          </span>
-                        )}
-                      </div>
-                      {event.description && (
-                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{event.description}</p>
-                      )}
-                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {formatTimestamp(event.date)}
-                        </span>
-                        {event.registrationLimit && (
-                          <span className="flex items-center gap-1">
-                            <Users className="w-3 h-3" />
-                            Limit: {event.registrationLimit.toString()}
-                          </span>
-                        )}
+      {/* Registration Details Panel */}
+      {selectedEvent && (
+        <div className="mb-6">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base">
+                Registrations: {selectedEvent.title}
+              </CardTitle>
+              <Button variant="ghost" size="icon" onClick={() => setSelectedEvent(null)}>
+                <X className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {registrations.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">No registrations yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {registrations.map((reg) => (
+                    <div
+                      key={reg.user.toString()}
+                      className="flex items-center justify-between p-3 rounded-lg border bg-card"
+                    >
+                      <span className="text-sm font-mono truncate max-w-[200px]">
+                        {reg.user.toString()}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={reg.isPaid ? 'default' : 'secondary'}>
+                          {reg.isPaid ? 'Paid' : 'Unpaid'}
+                        </Badge>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleTogglePaid(selectedEvent.id, reg.user)}
+                          disabled={togglePaidMutation.isPending}
+                        >
+                          Toggle Paid
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex flex-col gap-2 shrink-0">
-                      {event.status === EventStatus.approved && (
-                        <button
-                          onClick={() => handleRegister(event.id)}
-                          disabled={registered || registerForEvent.isPending}
-                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                            registered
-                              ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 cursor-default"
-                              : "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                          }`}
-                        >
-                          {registered ? (
-                            <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" />Registered</span>
-                          ) : (
-                            "Register"
-                          )}
-                        </button>
-                      )}
-                      {isExec && (
-                        <button
-                          onClick={() => setSelectedEvent(isSelected ? null : event)}
-                          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors"
-                        >
-                          {isSelected ? "Hide" : "Registrations"}
-                        </button>
-                      )}
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
-                {/* Registrations panel */}
-                {isSelected && isExec && (
-                  <div className="border-t border-border p-4 bg-muted/30">
-                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-                      <Users className="w-4 h-4" />
-                      Registrations ({eventRegistrations.length})
-                    </h4>
-                    {eventRegistrations.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No registrations yet</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {eventRegistrations.map(reg => (
-                          <div key={reg.user.toString()} className="flex items-center justify-between p-2 rounded-lg bg-card border border-border">
-                            <div>
-                              <p className="text-xs font-mono text-foreground">{reg.user.toString().slice(0, 20)}…</p>
-                              <p className="text-xs text-muted-foreground">{formatTimestamp(reg.timestamp)}</p>
-                            </div>
-                            <button
-                              onClick={() => handleTogglePaid(event.id, reg.user.toString())}
-                              disabled={togglePaid.isPending}
-                              className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
-                                reg.isPaid
-                                  ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
-                                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-                              }`}
-                            >
-                              <CreditCard className="w-3 h-3" />
-                              {reg.isPaid ? "Paid" : "Mark Paid"}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              )}
+            </CardContent>
+          </Card>
         </div>
       )}
+
+      {/* Events Tabs */}
+      <Tabs defaultValue="upcoming">
+        <TabsList className="mb-4">
+          <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
+          {isExecutiveRole(userRole) && (
+            <TabsTrigger value="pending">
+              Pending
+              {pendingEvents.length > 0 && (
+                <Badge variant="destructive" className="ml-2 text-xs">
+                  {pendingEvents.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="upcoming">
+          {eventsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : events.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
+              <p className="font-medium">No upcoming events</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {events.map(event => (
+                <EventCard
+                  key={event.id.toString()}
+                  event={event}
+                  userRole={userRole}
+                  isRegistered={registeredEventIds.has(event.id.toString())}
+                  onRegister={handleRegister}
+                  onApprove={isExecutiveRole(userRole) ? handleApprove : undefined}
+                  isApproving={approvingId === event.id}
+                  isRegistering={registeringId === event.id}
+                  onViewRegistrations={isExecutiveRole(userRole) ? setSelectedEvent : undefined}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {isExecutiveRole(userRole) && (
+          <TabsContent value="pending">
+            {pendingEvents.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No pending events</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {pendingEvents.map(event => (
+                  <EventCard
+                    key={event.id.toString()}
+                    event={event}
+                    userRole={userRole}
+                    isRegistered={false}
+                    onRegister={handleRegister}
+                    onApprove={handleApprove}
+                    isApproving={approvingId === event.id}
+                    onViewRegistrations={setSelectedEvent}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

@@ -1,134 +1,26 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Admin visibility, profile editing, role/post management, and logout fixes",
+  "title": "Fix member approval authorization bug",
   "requirements": [
     {
-      "id": "REQ-1",
-      "summary": "Enable admin to see all member profiles and pending approval requests immediately in AdminPage",
-      "acceptanceCriteria": [
-        "When a new member logs in for the first time and submits their profile, their entry appears in the admin's pending approvals list without requiring a page reload.",
-        "The admin panel lists all registered member profiles, including those with pending status.",
-        "The AdminPage correctly fetches and displays both pending and approved users for the root admin account."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/pages/AdminPage.tsx",
-          "operation": "modify",
-          "description": "Ensure the AdminPage fetches and displays both pending and approved users correctly. Verify that the useGetAllUsers and useListApprovals queries are enabled and not blocked. Add error handling and loading states for both queries. Ensure the root admin bypass logic (graph.dust@gmail.com) allows viewing all data. Add real-time query invalidation on mount to fetch the latest user data."
-        },
-        {
-          "path": "frontend/src/hooks/useQueries.ts",
-          "operation": "modify",
-          "description": "Review and fix the useGetAllUsers and useListApprovals query hooks. Ensure they are not inadvertently disabled or have stale cache settings. Add query refetch configuration (e.g., refetchOnMount: 'always') to ensure fresh data is fetched when the admin views the panel. Verify that both queries correctly handle the backend interface methods getAllUsers() and listApprovals()."
-        }
-      ]
-    },
-    {
       "id": "REQ-2",
-      "summary": "Display 'Admin' badge for users with admin/root role on profile page and profile displays",
+      "summary": "Fix the frontend AdminPage pending-users approval flow so that the authenticated caller's identity is correctly passed to the backend actor and the UI reflects the updated approval state after success",
       "acceptanceCriteria": [
-        "The ProfilePage for the admin account displays a visible 'Admin' tag/badge near the user's name or role.",
-        "The RoleBadge component renders an 'Admin' label when the user's role is the root admin role.",
-        "Non-admin profiles do not display the admin tag."
+        "Clicking the approve button on a pending user in AdminPage triggers the backend call with the correct authenticated identity",
+        "On success, the pending user is removed from the pending list and appears in the approved members list",
+        "On failure, a clear error toast or message is shown to the admin"
       ],
       "file_operations": [
-        {
-          "path": "frontend/src/components/RoleBadge.tsx",
-          "operation": "modify",
-          "description": "Ensure the RoleBadge component correctly renders an 'Admin' label when the role is Role.rootAdmin. Update the getRoleLabel utility (if used) or add inline logic to map Role.rootAdmin to the display text 'Admin'. Verify styling to make the badge prominent."
-        },
-        {
-          "path": "frontend/src/pages/ProfilePage.tsx",
-          "operation": "modify",
-          "description": "Add a RoleBadge component to the ProfilePage UI, positioned near the user's name or profile header. Pass the current user's role (from userProfile.role) to the RoleBadge. Ensure the badge is visible for admin accounts and not shown for non-admin roles unless desired."
-        },
-        {
-          "path": "frontend/src/lib/utils.ts",
-          "operation": "modify",
-          "description": "Review and update the getRoleLabel function to ensure Role.rootAdmin maps to 'Admin' (or 'Root Admin') for display purposes. Ensure consistency across all UI components that display roles."
-        }
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "summary": "Provide admin UI controls to create posts, create roles, and assign roles to members",
-      "acceptanceCriteria": [
-        "The admin can see and use the CreatePostForm (or equivalent) to submit a new post.",
-        "The admin can see the RoleAssignmentPanel and use it to assign roles to any approved member.",
-        "The admin panel provides controls to create new roles or select from existing roles and assign them to members.",
-        "All admin-only controls are hidden from non-admin users."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/pages/AdminPage.tsx",
-          "operation": "modify",
-          "description": "Add a CreatePostForm component to the admin page, wrapped in a ProtectedSection that restricts access to admin roles. Ensure the form is visible and functional for the root admin account. Wire the form submission to the useSubmitPost mutation. Verify the RoleAssignmentPanel is already present and accessible."
-        },
-        {
-          "path": "frontend/src/components/admin/RoleAssignmentPanel.tsx",
-          "operation": "modify",
-          "description": "Ensure the RoleAssignmentPanel displays all approved users and provides a dropdown to select and assign roles (including all Role enum values: rootAdmin, president, vicePresident, secretaryTreasurer, lt, mc, elt, member). Verify the assignRole mutation is wired correctly. Add success/error toast feedback after role assignment."
-        },
-        {
-          "path": "frontend/src/components/AppSidebar.tsx",
-          "operation": "modify",
-          "description": "Ensure the admin section in the sidebar includes navigation links to admin features (e.g., AdminPage, role management). Verify the admin section is conditionally rendered based on the user's role (using canManageUsers or similar permission check). Ensure the admin link is visible and functional for root admin accounts."
-        }
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "summary": "Enable profile editing with fields for profile picture, display name, category, company name, and description",
-      "acceptanceCriteria": [
-        "The ProfilePage shows an edit form or inline edit controls for: profile picture, name, category, company name, and description.",
-        "Submitting the edit form saves the changes to the backend and reflects them immediately on the profile page.",
-        "The backend User record stores companyName and description fields.",
-        "The updateProfile (or equivalent) backend function accepts and persists companyName and description.",
-        "All authenticated users (not just admins) can edit their own profiles."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/pages/ProfilePage.tsx",
-          "operation": "modify",
-          "description": "Add or expand the profile edit form to include fields for: profile picture (ExternalBlob upload using blob-storage component), display name (text), category (text or enum selector if applicable), company name (text), and description/bio (textarea). Wire the form submission to the useSaveProfile mutation (or useUpdateProfile if available). Ensure the form pre-populates with the current user's profile data. Add validation and success/error toast feedback. Verify that the User type from backend.d.ts includes companyName and description fields. If category is not part of the User type, clarify usage or omit."
-        },
         {
           "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Ensure the useSaveProfile mutation correctly accepts and sends all profile fields (name, email, profilePic, companyName, description) to the saveCallerUserProfile backend method. Verify the mutation invalidates the 'currentUserProfile' query on success to reflect changes immediately. Add error handling for failed profile updates."
+          "description": "Review and fix the useApproveOrRejectUser mutation to ensure it correctly uses the authenticated actor when calling approveOrRejectUser. Verify that the mutation invalidates the correct query keys (pendingApprovals, allUsers) on success and displays error toasts on failure. The authenticated actor from useActor() must be used to make the backend call with the caller's principal."
         },
         {
-          "path": "frontend/src/components/auth/SignupForm.tsx",
+          "path": "frontend/src/pages/AdminPage.tsx",
           "operation": "modify",
-          "description": "Update the signup form to include optional fields for company name and description during initial profile creation. Ensure these fields are passed to the saveCallerUserProfile method along with name and email. If these fields are intended only for post-signup editing, leave the signup form unchanged."
-        }
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "summary": "Add a visible logout button accessible to all authenticated users in the navigation",
-      "acceptanceCriteria": [
-        "A logout button is visible in the AppSidebar for all authenticated users.",
-        "Clicking the logout button calls the Internet Identity logout method and returns the user to the login/auth screen.",
-        "The logout button is accessible on both desktop and mobile layouts.",
-        "The logout option is not limited to the WaitingForApproval screen."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/AppSidebar.tsx",
-          "operation": "modify",
-          "description": "Ensure a logout button is present in the AppSidebar for all authenticated users. The button should call the clear() method from useInternetIdentity and invalidate all cached queries using queryClient.clear(). Verify the button is styled and positioned appropriately (e.g., at the bottom of the sidebar). Ensure the logout functionality works on both desktop and mobile layouts."
-        },
-        {
-          "path": "frontend/src/components/AppHeader.tsx",
-          "operation": "modify",
-          "description": "Add a logout button or icon to the AppHeader (e.g., in a user menu dropdown or as a standalone button) for mobile/tablet users. Ensure it calls the clear() method from useInternetIdentity and clears cached queries. Verify the button is accessible on mobile layouts where the sidebar may not be visible."
-        },
-        {
-          "path": "frontend/src/components/auth/WaitingForApproval.tsx",
-          "operation": "modify",
-          "description": "Ensure the WaitingForApproval screen continues to offer a logout option (button or link) that calls the clear() method from useInternetIdentity. Verify this logout button remains functional and does not conflict with the new navigation logout buttons."
+          "description": "Review the pending users approval UI and ensure that clicking the approve/reject buttons correctly triggers the useApproveOrRejectUser mutation with the proper user principal and approval status. Add success/error toast feedback and verify that the UI refreshes the pending users list after a successful approval. Ensure the component waits for the authenticated actor to be available before allowing approval actions."
         }
       ]
     }
