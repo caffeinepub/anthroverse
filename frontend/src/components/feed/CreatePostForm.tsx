@@ -50,7 +50,8 @@ export default function CreatePostForm({ defaultCategory, onSuccess }: CreatePos
     e.preventDefault();
     if (!content.trim()) return;
 
-    let imageBlob: ExternalBlob | undefined = undefined;
+    // Use null (not undefined) to satisfy ExternalBlob | null type
+    let imageBlob: ExternalBlob | null = null;
     if (imageFile) {
       const bytes = new Uint8Array(await imageFile.arrayBuffer());
       imageBlob = ExternalBlob.fromBytes(bytes as Uint8Array<ArrayBuffer>);

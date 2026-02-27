@@ -1,55 +1,57 @@
 {
   "kind": "build_request",
-  "title": "Fix member approval authorization bug",
+  "title": "Fix registration flow and admin member removal",
   "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Fix the backend authorization logic so that admins/managers with the appropriate role can successfully approve pending members. The approve call must correctly identify the caller's principal and validate their permission to approve users without returning an authorization error.",
-      "target": "backend",
+      "text": "Fix the registration flow so that newly registered users are immediately granted access to the main app without any approval gate or waiting screen. After completing profile setup, users must be routed directly to the main application.",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-recent"
+          "msg-4"
         ],
         "quotes": [
-          "not able to approve",
-          "Approving members is broken — authorization fix in progress"
+          "no. not working."
         ]
       },
       "acceptanceCriteria": [
-        "An admin or manager can call the approve user endpoint without receiving an authorization error",
-        "The approved user's status transitions from pending to approved in the backend state",
-        "Unauthorized principals (non-admin/non-manager roles) are still correctly rejected"
+        "A new user who completes the signup and profile setup flow is immediately taken to the main app",
+        "No approval waiting screen or gate is shown after registration",
+        "The user's status in the backend is set to approved upon registration",
+        "Refreshing the page after registration does not redirect the user back to a waiting or approval screen"
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Fix the frontend AdminPage pending-users approval flow so that when the approve button is clicked, the authenticated caller's identity is correctly passed to the backend actor and the UI reflects the updated approval state after success.",
-      "target": "frontend",
+      "text": "Fix the admin member removal feature so that admins can successfully remove members from the Members tab in the Admin panel. The remove action must call the correct backend function, handle errors gracefully, and reflect the updated member list immediately after removal.",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-recent"
+          "msg-4"
         ],
         "quotes": [
-          "not able to approve",
-          "the frontend AdminPage pending-users approval flow correctly passes the authenticated caller's identity to the backend"
+          "no. not working."
         ]
       },
       "acceptanceCriteria": [
-        "Clicking the approve button on a pending user in AdminPage triggers the backend call with the correct authenticated identity",
-        "On success, the pending user is removed from the pending list and appears in the approved members list",
-        "On failure, a clear error toast or message is shown to the admin"
+        "A 'Remove Member' action is visible and functional in the admin Members tab for eligible users",
+        "Clicking remove triggers a confirmation prompt before proceeding",
+        "The backend successfully removes the user and returns a success result",
+        "The member list updates immediately after a successful removal without requiring a full page reload",
+        "An appropriate error message is shown if the removal fails"
       ]
     }
   ],
   "constraints": [
-    "Do not change any immutable frontend paths (useInternetIdentity.ts, useActor.ts, main.tsx, ui components)",
-    "Keep all backend logic within the single main actor in backend/main.mo"
+    "Do not modify files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui",
+    "Preserve existing role-based access control logic",
+    "Keep all backend logic in the single main actor at backend/main.mo"
   ],
   "nonGoals": [
-    "Adding new user roles or permissions beyond what already exists",
-    "Changing the overall approval workflow UI layout",
-    "Fixing any other unrelated authorization flows"
+    "Redesigning the authentication UI or layout",
+    "Adding new admin features beyond member removal",
+    "Changing the existing approval flow for posts or events"
   ],
   "imageRequirements": {
     "required": [],

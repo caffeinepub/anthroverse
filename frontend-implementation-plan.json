@@ -1,26 +1,75 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix member approval authorization bug",
+  "title": "Fix registration flow and admin member removal",
   "requirements": [
     {
-      "id": "REQ-2",
-      "summary": "Fix the frontend AdminPage pending-users approval flow so that the authenticated caller's identity is correctly passed to the backend actor and the UI reflects the updated approval state after success",
+      "id": "REQ-1",
+      "summary": "Remove approval gate from registration flow so new users access the main app immediately after profile setup",
       "acceptanceCriteria": [
-        "Clicking the approve button on a pending user in AdminPage triggers the backend call with the correct authenticated identity",
-        "On success, the pending user is removed from the pending list and appears in the approved members list",
-        "On failure, a clear error toast or message is shown to the admin"
+        "A new user who completes the signup and profile setup flow is immediately taken to the main app",
+        "No approval waiting screen or gate is shown after registration",
+        "The user's status in the backend is set to approved upon registration",
+        "Refreshing the page after registration does not redirect the user back to a waiting or approval screen"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/App.tsx",
+          "operation": "modify",
+          "description": "Remove the approval check from the authentication flow. After profile setup is complete, route users directly to the main application without checking isCallerApproved. Update the phase logic to skip the waiting-for-approval phase entirely and move from profile-setup directly to authenticated."
+        },
+        {
+          "path": "frontend/src/components/ProfileSetupModal.tsx",
+          "operation": "modify",
+          "description": "After successfully saving the user profile via saveCallerUserProfile mutation, immediately invalidate the currentUserProfile query and navigate to the main app route without any approval status checks. Remove any logic that redirects to a waiting or approval screen."
+        },
+        {
+          "path": "frontend/src/pages/ProfileSetupPage.tsx",
+          "operation": "modify",
+          "description": "After successfully calling registerUser and saveCallerUserProfile mutations, navigate directly to the feed or home route (/) without checking approval status. Ensure the registration flow completes in a single step and transitions immediately to the authenticated app state."
+        },
+        {
+          "path": "frontend/src/components/auth/SignupForm.tsx",
+          "operation": "modify",
+          "description": "Update the multi-step signup flow to ensure that after profile creation (name, email, profile picture), the user is routed directly to the main app. Remove any post-registration approval checks or waiting states from this component."
+        },
+        {
+          "path": "frontend/src/components/auth/WaitingForApproval.tsx",
+          "operation": "delete",
+          "description": "Delete the empty WaitingForApproval component file as it is no longer needed in the approval-free registration flow."
+        },
+        {
+          "path": "frontend/src/components/WaitingForApproval.tsx",
+          "operation": "delete",
+          "description": "Delete the empty WaitingForApproval component file as it is no longer needed in the approval-free registration flow."
+        },
+        {
+          "path": "frontend/src/pages/WaitingApprovalPage.tsx",
+          "operation": "delete",
+          "description": "Delete the empty WaitingApprovalPage component file as it is no longer used in the updated registration flow."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Fix admin member removal functionality in the Members tab to successfully delete users and update the list",
+      "acceptanceCriteria": [
+        "A 'Remove Member' action is visible and functional in the admin Members tab for eligible users",
+        "Clicking remove triggers a confirmation prompt before proceeding",
+        "The backend successfully removes the user and returns a success result",
+        "The member list updates immediately after a successful removal without requiring a full page reload",
+        "An appropriate error message is shown if the removal fails"
       ],
       "file_operations": [
         {
           "path": "frontend/src/hooks/useQueries.ts",
           "operation": "modify",
-          "description": "Review and fix the useApproveOrRejectUser mutation to ensure it correctly uses the authenticated actor when calling approveOrRejectUser. Verify that the mutation invalidates the correct query keys (pendingApprovals, allUsers) on success and displays error toasts on failure. The authenticated actor from useActor() must be used to make the backend call with the caller's principal."
+          "description": "Add a useRemoveMember mutation hook that calls the backend removeMember(user: Principal) function. The mutation should accept a Principal parameter, handle loading/error states, and invalidate the 'approvals' query key on success to refresh the member list. Include proper error handling with toast notifications."
         },
         {
           "path": "frontend/src/pages/AdminPage.tsx",
           "operation": "modify",
-          "description": "Review the pending users approval UI and ensure that clicking the approve/reject buttons correctly triggers the useApproveOrRejectUser mutation with the proper user principal and approval status. Add success/error toast feedback and verify that the UI refreshes the pending users list after a successful approval. Ensure the component waits for the authenticated actor to be available before allowing approval actions."
+          "description": "In the Members tab table, add a 'Remove' button or action dropdown for each member row (excluding the current user and root admin). Wire the button to call the useRemoveMember mutation with a confirmation dialog before proceeding. Display a loading spinner on the button during removal, show success/error toast notifications, and ensure the member list refreshes immediately after successful removal due to query invalidation."
         }
       ]
     }

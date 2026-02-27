@@ -1,13 +1,14 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the broken member approval flow by correcting authorization logic in the backend and fixing the identity-passing issue in the frontend AdminPage.
+**Goal:** Fix two broken flows: the registration process so new users skip any approval gate and land directly in the app, and the admin member removal feature so it works correctly.
 
 **Planned changes:**
-- Fix backend authorization logic in `backend/main.mo` so that the caller's principal is correctly identified and validated when an admin or manager calls the approve user endpoint
-- Ensure unauthorized principals are still rejected by the backend
-- Fix the frontend `AdminPage` pending-users approval flow so the authenticated caller's identity is correctly passed to the backend actor when the approve button is clicked
-- Update the UI to reflect the approved state after a successful call (remove from pending list, add to approved list)
-- Show a clear error message or toast when the approval call fails
+- Set newly registered users' status to approved immediately upon completing signup and profile setup
+- Route users directly to the main app after registration, removing any approval waiting screen
+- Fix the admin Members tab "Remove Member" action to call the correct backend function
+- Add a confirmation prompt before removing a member
+- Update the member list immediately after a successful removal without a full page reload
+- Show an appropriate error message if member removal fails
 
-**User-visible outcome:** Admins and managers can successfully approve pending members from the AdminPage without encountering authorization errors, and the member list updates immediately to reflect the approval.
+**User-visible outcome:** New users are taken straight into the app after registering, with no waiting screen. Admins can successfully remove members from the Members tab, seeing the list update instantly after removal.

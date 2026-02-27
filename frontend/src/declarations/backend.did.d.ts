@@ -127,17 +127,6 @@ export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addComment' : ActorMethod<[bigint, string], undefined>,
   'approveEvent' : ActorMethod<[bigint], undefined>,
-  /**
-   * / Approve or reject a pending user registration.
-   * / Permitted callers: AccessControl admins (#admin role) OR executive core/master admin.
-   */
-  'approveOrRejectUser' : ActorMethod<
-    [Principal, ApprovalStatus],
-    {
-      'updatedUsers' : Array<[Principal, User]>,
-      'approvals' : Array<UserApprovalInfo>,
-    }
-  >,
   'approvePost' : ActorMethod<[bigint], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'assignRole' : ActorMethod<[Principal, Role], undefined>,
@@ -147,7 +136,6 @@ export interface _SERVICE {
   >,
   'deleteComment' : ActorMethod<[bigint, bigint], undefined>,
   'deletePost' : ActorMethod<[bigint], undefined>,
-  'getAllUsers' : ActorMethod<[], Array<[Principal, User]>>,
   'getCallerUserProfile' : ActorMethod<[], [] | [User]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getComments' : ActorMethod<[bigint], Array<Comment>>,
@@ -156,24 +144,8 @@ export interface _SERVICE {
   'getMyNotifications' : ActorMethod<[], Array<Notification>>,
   'getMyPosts' : ActorMethod<[], Array<PostView>>,
   'getMyRegistrations' : ActorMethod<[], Array<Registration>>,
-  /**
-   * / View pending approvals.
-   * / Permitted callers: AccessControl admins (#admin role) OR executive core / master admin.
-   */
-  'getPendingApprovals' : ActorMethod<
-    [],
-    {
-      'users' : Array<[Principal, User]>,
-      'approvals' : Array<UserApprovalInfo>,
-    }
-  >,
   'getPendingEvents' : ActorMethod<[], Array<Event>>,
   'getPendingPosts' : ActorMethod<[], Array<PostView>>,
-  /**
-   * / View pending (unapproved) users.
-   * / Permitted callers: AccessControl admins (#admin role) OR executive core / master admin.
-   */
-  'getPendingUsers' : ActorMethod<[], Array<[Principal, User]>>,
   'getPosts' : ActorMethod<[[] | [PostCategory]], Array<PostView>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [User]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
@@ -182,6 +154,7 @@ export interface _SERVICE {
   'markNotificationsRead' : ActorMethod<[], undefined>,
   'registerForEvent' : ActorMethod<[bigint], undefined>,
   'registerUser' : ActorMethod<[string, string], undefined>,
+  'removeMember' : ActorMethod<[Principal], undefined>,
   'requestApproval' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[User], undefined>,
   'searchPostsByMember' : ActorMethod<[string], Array<PostView>>,

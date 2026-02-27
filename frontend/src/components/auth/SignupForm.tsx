@@ -1,14 +1,13 @@
 import { useState } from 'react';
 import { useInternetIdentity } from '../../hooks/useInternetIdentity';
-import { useSaveCallerUserProfile, useUploadProfilePic } from '../../hooks/useQueries';
-import { Role } from '../../backend';
+import { useRegisterUser, useUploadProfilePic } from '../../hooks/useQueries';
 import { ExternalBlob } from '../../backend';
 
 type Step = 'connect' | 'profile';
 
 export default function SignupForm() {
   const { login, loginStatus, identity } = useInternetIdentity();
-  const saveProfile = useSaveCallerUserProfile();
+  const registerUser = useRegisterUser();
   const uploadProfilePic = useUploadProfilePic();
 
   const [step, setStep] = useState<Step>('connect');
@@ -41,15 +40,7 @@ export default function SignupForm() {
     if (!name.trim() || !email.trim()) return;
     setError('');
     try {
-      await saveProfile.mutateAsync({
-        name: name.trim(),
-        email: email.trim(),
-        role: Role.member,
-        isApproved: false,
-        profilePic: undefined,
-        companyName: '',
-        description: '',
-      });
+      await registerUser.mutateAsync({ name: name.trim(), email: email.trim() });
 
       if (picFile) {
         const bytes = new Uint8Array(await picFile.arrayBuffer());
@@ -109,7 +100,11 @@ export default function SignupForm() {
         {picPreview ? (
           <div className="flex items-center gap-3">
             <img src={picPreview} alt="Preview" className="w-12 h-12 rounded-full object-cover" />
-            <button type="button" onClick={() => { setPicFile(null); setPicPreview(null); }} className="text-xs text-muted-foreground hover:text-foreground">
+            <button
+              type="button"
+              onClick={() => { setPicFile(null); setPicPreview(null); }}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
               Remove
             </button>
           </div>
@@ -123,10 +118,10 @@ export default function SignupForm() {
       {error && <p className="text-destructive text-sm">{error}</p>}
       <button
         type="submit"
-        disabled={saveProfile.isPending || uploadProfilePic.isPending || !name.trim() || !email.trim()}
+        disabled={registerUser.isPending || uploadProfilePic.isPending || !name.trim() || !email.trim()}
         className="w-full py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
       >
-        {saveProfile.isPending || uploadProfilePic.isPending ? 'Saving…' : 'Create Profile'}
+        {registerUser.isPending || uploadProfilePic.isPending ? 'Saving…' : 'Create Profile'}
       </button>
     </form>
   );

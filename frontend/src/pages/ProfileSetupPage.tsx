@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { useSaveCallerUserProfile, useUploadProfilePic } from '../hooks/useQueries';
-import { Role } from '../backend';
+import { useRegisterUser, useUploadProfilePic } from '../hooks/useQueries';
 import { ExternalBlob } from '../backend';
 import { useNavigate } from '@tanstack/react-router';
 
 export default function ProfileSetupPage() {
-  const saveProfile = useSaveCallerUserProfile();
+  const registerUser = useRegisterUser();
   const uploadProfilePic = useUploadProfilePic();
   const navigate = useNavigate();
 
@@ -29,15 +28,7 @@ export default function ProfileSetupPage() {
     if (!name.trim() || !email.trim()) return;
     setError('');
     try {
-      await saveProfile.mutateAsync({
-        name: name.trim(),
-        email: email.trim(),
-        role: Role.member,
-        isApproved: false,
-        profilePic: undefined,
-        companyName: '',
-        description: '',
-      });
+      await registerUser.mutateAsync({ name: name.trim(), email: email.trim() });
 
       if (picFile) {
         const bytes = new Uint8Array(await picFile.arrayBuffer());
@@ -112,10 +103,10 @@ export default function ProfileSetupPage() {
           {error && <p className="text-destructive text-sm">{error}</p>}
           <button
             type="submit"
-            disabled={saveProfile.isPending || uploadProfilePic.isPending || !name.trim() || !email.trim()}
+            disabled={registerUser.isPending || uploadProfilePic.isPending || !name.trim() || !email.trim()}
             className="w-full py-2.5 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            {saveProfile.isPending || uploadProfilePic.isPending ? 'Saving…' : 'Continue'}
+            {registerUser.isPending || uploadProfilePic.isPending ? 'Saving…' : 'Continue'}
           </button>
         </form>
       </div>

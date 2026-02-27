@@ -118,21 +118,12 @@ export enum Variant_roleAssigned_eventCreated_tenureSwitched_accountApproved_ann
 export interface backendInterface {
     addComment(postId: bigint, content: string): Promise<void>;
     approveEvent(eventId: bigint): Promise<void>;
-    /**
-     * / Approve or reject a pending user registration.
-     * / Permitted callers: AccessControl admins (#admin role) OR executive core/master admin.
-     */
-    approveOrRejectUser(user: Principal, status: ApprovalStatus): Promise<{
-        updatedUsers: Array<[Principal, User]>;
-        approvals: Array<UserApprovalInfo>;
-    }>;
     approvePost(postId: bigint): Promise<void>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     assignRole(user: Principal, role: Role): Promise<void>;
     createEvent(title: string, description: string, date: Time, banner: ExternalBlob | null, registrationLimit: bigint | null): Promise<void>;
     deleteComment(postId: bigint, commentIndex: bigint): Promise<void>;
     deletePost(postId: bigint): Promise<void>;
-    getAllUsers(): Promise<Array<[Principal, User]>>;
     getCallerUserProfile(): Promise<User | null>;
     getCallerUserRole(): Promise<UserRole>;
     getComments(postId: bigint): Promise<Array<Comment>>;
@@ -141,21 +132,8 @@ export interface backendInterface {
     getMyNotifications(): Promise<Array<Notification>>;
     getMyPosts(): Promise<Array<PostView>>;
     getMyRegistrations(): Promise<Array<Registration>>;
-    /**
-     * / View pending approvals.
-     * / Permitted callers: AccessControl admins (#admin role) OR executive core / master admin.
-     */
-    getPendingApprovals(): Promise<{
-        users: Array<[Principal, User]>;
-        approvals: Array<UserApprovalInfo>;
-    }>;
     getPendingEvents(): Promise<Array<Event>>;
     getPendingPosts(): Promise<Array<PostView>>;
-    /**
-     * / View pending (unapproved) users.
-     * / Permitted callers: AccessControl admins (#admin role) OR executive core / master admin.
-     */
-    getPendingUsers(): Promise<Array<[Principal, User]>>;
     getPosts(categoryFilter: PostCategory | null): Promise<Array<PostView>>;
     getUserProfile(user: Principal): Promise<User | null>;
     isCallerAdmin(): Promise<boolean>;
@@ -164,6 +142,7 @@ export interface backendInterface {
     markNotificationsRead(): Promise<void>;
     registerForEvent(eventId: bigint): Promise<void>;
     registerUser(name: string, email: string): Promise<void>;
+    removeMember(user: Principal): Promise<void>;
     requestApproval(): Promise<void>;
     saveCallerUserProfile(profile: User): Promise<void>;
     searchPostsByMember(memberName: string): Promise<Array<PostView>>;

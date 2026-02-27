@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
-import { ApprovalStatus, PostCategory, Role, UserRole, type User, type PostView, type Comment, type Event, type Registration, type Notification, type UserApprovalInfo } from '../backend';
-import type { Principal } from '@dfinity/principal';
 import { toast } from 'sonner';
+import type { User, PostCategory, PostView, Comment, Event, Registration, UserApprovalInfo, Role } from '../backend';
+import { ExternalBlob } from '../backend';
+import { Principal } from '@dfinity/principal';
 
-// ─── User / Profile ──────────────────────────────────────────────────────────
+// ─── Profile ────────────────────────────────────────────────────────────────
 
 export function useGetCallerUserProfile() {
   const { actor, isFetching: actorFetching } = useActor();
@@ -13,7 +14,12 @@ export function useGetCallerUserProfile() {
     queryKey: ['currentUserProfile'],
     queryFn: async () => {
       if (!actor) throw new Error('Actor not available');
-      return actor.getCallerUserProfile();
+      try {
+        return await actor.getCallerUserProfile();
+      } catch {
+        // New unregistered users will get an auth error — treat as no profile
+        return null;
+      }
     },
     enabled: !!actor && !actorFetching,
     retry: false,
@@ -36,6 +42,36 @@ export function useGetUserProfile(userPrincipal: Principal | null) {
       return actor.getUserProfile(userPrincipal);
     },
     enabled: !!actor && !actorFetching && !!userPrincipal,
+    retry: false,
+  });
+}
+
+// ─── Registration ────────────────────────────────────────────────────────────
+
+export function useRegisterUser() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ name, email }: { name: string; email: string }) => {
+      if (!actor) throw new Error('Actor not available');
+      await actor.registerUser(name, email);
+      // Also call requestApproval so the user appears in the admin member list
+      try {
+        await actor.requestApproval();
+      } catch {
+        // Non-critical: ignore if requestApproval fails (e.g. root admin)
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['approvals'] });
+      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Registration failed');
+    },
   });
 }
 
@@ -50,42 +86,41 @@ export function useSaveCallerUserProfile() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      toast.success('Profile saved successfully');
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to save profile: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to save profile');
     },
   });
 }
 
-export function useRegisterUser() {
+export function useUploadProfilePic() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ name, email }: { name: string; email: string }) => {
+    mutationFn: async (imageBlob: ExternalBlob) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.registerUser(name, email);
+      return actor.uploadProfilePic(imageBlob);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
     },
-    onError: (error: Error) => {
-      toast.error(`Registration failed: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to upload profile picture');
     },
   });
 }
 
-// ─── Posts ────────────────────────────────────────────────────────────────────
+// ─── Posts ───────────────────────────────────────────────────────────────────
 
-export function useGetPosts(categoryFilter?: PostCategory) {
+export function useGetPosts(categoryFilter: PostCategory | null = null) {
   const { actor, isFetching: actorFetching } = useActor();
 
   return useQuery<PostView[]>({
-    queryKey: ['posts', categoryFilter ?? 'all'],
+    queryKey: ['posts', categoryFilter],
     queryFn: async () => {
       if (!actor) return [];
-      return actor.getPosts(categoryFilter ?? null);
+      return actor.getPosts(categoryFilter);
     },
     enabled: !!actor && !actorFetching,
   });
@@ -129,18 +164,19 @@ export function useSubmitPost() {
     }: {
       category: PostCategory;
       content: string;
-      imageBlob?: import('../backend').ExternalBlob;
+      imageBlob: ExternalBlob | null;
     }) => {
       if (!actor) throw new Error('Actor not available');
-      return actor.submitPost(category, content, imageBlob ?? null);
+      return actor.submitPost(category, content, imageBlob);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingPosts'] });
       queryClient.invalidateQueries({ queryKey: ['myPosts'] });
-      toast.success('Post submitted successfully');
+      toast.success('Post submitted successfully!');
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to submit post: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to submit post');
     },
   });
 }
@@ -157,10 +193,10 @@ export function useApprovePost() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       queryClient.invalidateQueries({ queryKey: ['pendingPosts'] });
-      toast.success('Post approved');
+      toast.success('Post approved!');
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to approve post: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to approve post');
     },
   });
 }
@@ -176,11 +212,12 @@ export function useDeletePost() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingPosts'] });
       queryClient.invalidateQueries({ queryKey: ['myPosts'] });
-      toast.success('Post deleted');
+      toast.success('Post deleted!');
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to delete post: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to delete post');
     },
   });
 }
@@ -196,15 +233,14 @@ export function useToggleLike() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
-      queryClient.invalidateQueries({ queryKey: ['myPosts'] });
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to toggle like: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to toggle like');
     },
   });
 }
 
-// ─── Comments ─────────────────────────────────────────────────────────────────
+// ─── Comments ────────────────────────────────────────────────────────────────
 
 export function useGetComments(postId: bigint | undefined) {
   const { actor, isFetching: actorFetching } = useActor();
@@ -230,9 +266,10 @@ export function useAddComment() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['comments', variables.postId.toString()] });
+      toast.success('Comment added!');
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to add comment: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to add comment');
     },
   });
 }
@@ -248,123 +285,15 @@ export function useDeleteComment() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['comments', variables.postId.toString()] });
+      toast.success('Comment deleted!');
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to delete comment: ${error.message}`);
-    },
-  });
-}
-
-// ─── Users / Approvals ────────────────────────────────────────────────────────
-
-export function useGetAllUsers() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<[Principal, User][]>({
-    queryKey: ['allUsers'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getAllUsers();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-}
-
-export function useGetPendingUsers() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<[Principal, User][]>({
-    queryKey: ['pendingUsers'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getPendingUsers();
-    },
-    enabled: !!actor && !actorFetching,
-    retry: 1,
-  });
-}
-
-export function useApproveOrRejectUser() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({
-      userPrincipal,
-      status,
-    }: {
-      userPrincipal: Principal;
-      status: ApprovalStatus;
-    }) => {
-      if (!actor) throw new Error('Actor not available. Please wait for authentication.');
-      return actor.approveOrRejectUser(userPrincipal, status);
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['pendingUsers'] });
-      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
-      queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
-      const action = variables.status === ApprovalStatus.approved ? 'approved' : 'rejected';
-      toast.success(`User ${action} successfully`);
-    },
-    onError: (error: Error) => {
-      const msg = error.message || 'Unknown error';
-      toast.error(`Failed to update approval: ${msg}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to delete comment');
     },
   });
 }
 
-export function useAssignRole() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async ({ userPrincipal, role }: { userPrincipal: Principal; role: Role }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.assignRole(userPrincipal, role);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
-      toast.success('Role assigned successfully');
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to assign role: ${error.message}`);
-    },
-  });
-}
-
-export function useRequestApproval() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async () => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.requestApproval();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['approvalStatus'] });
-      toast.success('Approval request submitted');
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to request approval: ${error.message}`);
-    },
-  });
-}
-
-export function useIsCallerApproved() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<boolean>({
-    queryKey: ['approvalStatus'],
-    queryFn: async () => {
-      if (!actor) return false;
-      return actor.isCallerApproved();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-}
-
-// ─── Events ───────────────────────────────────────────────────────────────────
+// ─── Events ──────────────────────────────────────────────────────────────────
 
 export function useGetEvents() {
   const { actor, isFetching: actorFetching } = useActor();
@@ -407,7 +336,7 @@ export function useCreateEvent() {
       title: string;
       description: string;
       date: bigint;
-      banner: import('../backend').ExternalBlob | null;
+      banner: ExternalBlob | null;
       registrationLimit: bigint | null;
     }) => {
       if (!actor) throw new Error('Actor not available');
@@ -416,10 +345,10 @@ export function useCreateEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['pendingEvents'] });
-      toast.success('Event created successfully');
+      toast.success('Event created successfully!');
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to create event: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to create event');
     },
   });
 }
@@ -436,10 +365,10 @@ export function useApproveEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
       queryClient.invalidateQueries({ queryKey: ['pendingEvents'] });
-      toast.success('Event approved');
+      toast.success('Event approved!');
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to approve event: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to approve event');
     },
   });
 }
@@ -455,24 +384,11 @@ export function useRegisterForEvent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['myRegistrations'] });
-      toast.success('Registered for event');
+      toast.success('Registered for event!');
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to register: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to register for event');
     },
-  });
-}
-
-export function useGetMyRegistrations() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<Registration[]>({
-    queryKey: ['myRegistrations'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.getMyRegistrations();
-    },
-    enabled: !!actor && !actorFetching,
   });
 }
 
@@ -489,6 +405,19 @@ export function useGetEventRegistrations(eventId: bigint | null) {
   });
 }
 
+export function useGetMyRegistrations() {
+  const { actor, isFetching: actorFetching } = useActor();
+
+  return useQuery<Registration[]>({
+    queryKey: ['myRegistrations'],
+    queryFn: async () => {
+      if (!actor) return [];
+      return actor.getMyRegistrations();
+    },
+    enabled: !!actor && !actorFetching,
+  });
+}
+
 export function useTogglePaid() {
   const { actor } = useActor();
   const queryClient = useQueryClient();
@@ -501,25 +430,134 @@ export function useTogglePaid() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['eventRegistrations', variables.eventId.toString()] });
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to update payment: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to toggle payment status');
     },
   });
 }
 
-// ─── Notifications ────────────────────────────────────────────────────────────
+// ─── Admin / Users ───────────────────────────────────────────────────────────
+
+export function useListApprovals() {
+  const { actor, isFetching: actorFetching } = useActor();
+
+  return useQuery<UserApprovalInfo[]>({
+    queryKey: ['pendingApprovals'],
+    queryFn: async () => {
+      if (!actor) return [];
+      try {
+        return await actor.listApprovals();
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!actor && !actorFetching,
+  });
+}
+
+export function useGetAllUsers() {
+  const { actor, isFetching: actorFetching } = useActor();
+
+  return useQuery<Array<[Principal, User]>>({
+    queryKey: ['allUsers'],
+    queryFn: async () => {
+      if (!actor) return [];
+      try {
+        const approvals: UserApprovalInfo[] = await actor.listApprovals();
+        const results = await Promise.all(
+          approvals.map(async (info) => {
+            try {
+              const profile = await actor.getUserProfile(info.principal);
+              if (profile) {
+                return [info.principal, profile] as [Principal, User];
+              }
+              return null;
+            } catch {
+              return null;
+            }
+          })
+        );
+        return results.filter((r): r is [Principal, User] => r !== null);
+      } catch {
+        return [];
+      }
+    },
+    enabled: !!actor && !actorFetching,
+  });
+}
+
+export function useApproveOrRejectUser() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ user, approved }: { user: Principal; approved: boolean }) => {
+      if (!actor) throw new Error('Actor not available');
+      const { ApprovalStatus } = await import('../backend');
+      return actor.setApproval(user, approved ? ApprovalStatus.approved : ApprovalStatus.rejected);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+      toast.success('User status updated!');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to update user status');
+    },
+  });
+}
+
+export function useAssignRole() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userPrincipal, role }: { userPrincipal: Principal; role: Role }) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.assignRole(userPrincipal, role);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+      toast.success('Role assigned successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to assign role');
+    },
+  });
+}
+
+export function useRemoveMember() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userPrincipal: Principal) => {
+      if (!actor) throw new Error('Actor not available');
+      return actor.removeMember(userPrincipal);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['allUsers'] });
+      queryClient.invalidateQueries({ queryKey: ['pendingApprovals'] });
+      toast.success('Member removed successfully!');
+    },
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to remove member');
+    },
+  });
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────
 
 export function useGetMyNotifications() {
   const { actor, isFetching: actorFetching } = useActor();
 
-  return useQuery<Notification[]>({
+  return useQuery({
     queryKey: ['notifications'],
     queryFn: async () => {
       if (!actor) return [];
       return actor.getMyNotifications();
     },
     enabled: !!actor && !actorFetching,
-    refetchInterval: 30000,
   });
 }
 
@@ -538,7 +576,7 @@ export function useMarkNotificationsRead() {
   });
 }
 
-// ─── Tenure ───────────────────────────────────────────────────────────────────
+// ─── Tenure ──────────────────────────────────────────────────────────────────
 
 export function useStartNewTenure() {
   const { actor } = useActor();
@@ -563,71 +601,10 @@ export function useStartNewTenure() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['allUsers'] });
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      toast.success('New tenure started');
+      toast.success('New tenure started!');
     },
-    onError: (error: Error) => {
-      toast.error(`Failed to start tenure: ${error.message}`);
-    },
-  });
-}
-
-// ─── Access Control ───────────────────────────────────────────────────────────
-
-export function useIsCallerAdmin() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<boolean>({
-    queryKey: ['isCallerAdmin'],
-    queryFn: async () => {
-      if (!actor) return false;
-      return actor.isCallerAdmin();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-}
-
-export function useGetCallerUserRole() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<UserRole>({
-    queryKey: ['callerUserRole'],
-    queryFn: async () => {
-      if (!actor) return UserRole.guest;
-      return actor.getCallerUserRole();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-}
-
-export function useListApprovals() {
-  const { actor, isFetching: actorFetching } = useActor();
-
-  return useQuery<UserApprovalInfo[]>({
-    queryKey: ['listApprovals'],
-    queryFn: async () => {
-      if (!actor) return [];
-      return actor.listApprovals();
-    },
-    enabled: !!actor && !actorFetching,
-  });
-}
-
-export function useUploadProfilePic() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: async (image: import('../backend').ExternalBlob) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.uploadProfilePic(image);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentUserProfile'] });
-      toast.success('Profile picture updated');
-    },
-    onError: (error: Error) => {
-      toast.error(`Failed to upload profile picture: ${error.message}`);
+    onError: (error: any) => {
+      toast.error(error?.message || 'Failed to start new tenure');
     },
   });
 }

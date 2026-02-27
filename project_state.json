@@ -3,37 +3,28 @@
   "projectStateVersion": 3,
   "summary": "New project",
   "architectural_notes": [],
-  "known_issues": [
-    "Approving members is broken — authorization fix in progress"
-  ],
+  "known_issues": [],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-fix-the-frontend-adminpage-pending-users-approval-flow-so-that-when-the-approve-button-is-clicked-the-authenticated-caller-s-identity-is-correctly-passed-to-the-backend-actor-and-the-ui-reflects-the-updated-approval-state-after-success",
-      "title": "Fix the frontend AdminPage pending-users approval flow so that when the approve button is clicked, the authenticated caller's identity is correctly passed to the backend actor and the UI reflects the updated approval state after success.",
+      "id": "feature-fix-the-registration-flow-so-that-newly-registered-users-are-immediately-granted-access-to-the-main-app-without-any-approval-gate-or-waiting-screen-after-completing-profile-setup-users-must-be-routed-directly-to-the-main-application",
+      "title": "Fix the registration flow so that newly registered users are immediately granted access to the main app without any approval gate or waiting screen. After completing profile setup, users must be routed directly to the main application.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-admin-member-removal-feature-so-that-admins-can-successfully-remove-members-from-the-members-tab-in-the-admin-panel-the-remove-action-must-call-the-correct-backend-function-handle-errors-gracefully-and-reflect-the-updated-member-list-immediately-after-removal",
+      "title": "Fix the admin member removal feature so that admins can successfully remove members from the Members tab in the Admin panel. The remove action must call the correct backend function, handle errors gracefully, and reflect the updated member list immediately after removal.",
       "reqIds": [
         "REQ-2"
       ],
       "version": 1
     }
   ],
-  "new_feature_requests": [
-    {
-      "id": "AR-1",
-      "summary": "Fix: unable to approve members",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-2",
-      "summary": "Fix the backend authorization logic so that admins/managers with the appropriate role can successfully approve pending members. The approve call must correctly identify the caller's principal and validate their permission to approve users without returning an authorization error.",
-      "reqIds": [
-        "REQ-1"
-      ],
-      "status": "pending"
-    }
-  ],
-  "projectName": "Fix member approval authorization bug",
+  "new_feature_requests": [],
+  "projectName": "Fix registration flow and admin member removal",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

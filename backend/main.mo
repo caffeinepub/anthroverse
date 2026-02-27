@@ -203,27 +203,12 @@ actor {
   };
 
   // ---------------------------------------------------------------------------
-  // Approval helpers
+  // Role-check helpers
   // ---------------------------------------------------------------------------
 
   func isApprovedOrAdmin(caller : Principal) : Bool {
     if (caller.isAnonymous()) { return false };
-    if (isMasterAdmin(caller)) { return true };
-    if (AccessControl.hasPermission(accessControlState, caller, #admin)) { return true };
-    UserApproval.isApproved(approvalState, caller);
-  };
-
-  func requireApprovedUser(caller : Principal) {
-    if (caller.isAnonymous()) {
-      Runtime.trap("Unauthorized: Anonymous users cannot perform this action");
-    };
-    if (isMasterAdmin(caller)) {
-      ensureRootAdminUser(caller);
-      return;
-    };
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin) and not UserApproval.isApproved(approvalState, caller)) {
-      Runtime.trap("Unauthorized: Your account is pending approval");
-    };
+    isMasterAdmin(caller) or AccessControl.hasPermission(accessControlState, caller, #admin);
   };
 
   func requireApprovedUserQuery(caller : Principal) {
@@ -235,10 +220,6 @@ actor {
     };
   };
 
-  // ---------------------------------------------------------------------------
-  // Role-check helpers
-  // ---------------------------------------------------------------------------
-
   func requireMasterAdmin(caller : Principal) {
     if (not isMasterAdmin(caller)) {
       Runtime.trap("Unauthorized: Only MasterAdmin can perform this action");
@@ -246,7 +227,6 @@ actor {
   };
 
   /// Require caller to be an admin (AccessControl #admin role) OR executive core/master admin.
-  /// This is the correct guard for user approval management.
   func requireAdminOrExecutive(caller : Principal) {
     if (caller.isAnonymous()) {
       Runtime.trap("Unauthorized: Anonymous users cannot perform this action");
@@ -526,8 +506,9 @@ actor {
       case (null) { #member };
       case (?u) { u.role };
     };
+    // New users are immediately approved; existing approval status is preserved
     let existingApproved : Bool = switch (users.get(caller)) {
-      case (null) { false };
+      case (null) { true };
       case (?u) { u.isApproved };
     };
     let user : User = {
@@ -540,6 +521,10 @@ actor {
       description = profile.description;
     };
     users.add(caller, user);
+    // Ensure the user has the #user AccessControl role so they can access the app
+    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+      AccessControl.assignRole(accessControlState, caller, caller, #user);
+    };
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?User {
@@ -586,16 +571,40 @@ actor {
       return;
     };
 
+    // New users are immediately approved and granted the #user role
     let user : User = {
       name;
       email;
       role = #member;
-      isApproved = false;
+      isApproved = true;
       profilePic = null;
       companyName = "";
       description = "";
     };
     users.add(caller, user);
+    AccessControl.assignRole(accessControlState, caller, caller, #user);
+  };
+
+  // ---------------------------------------------------------------------------
+  // Public: approval state functions; required for admin users by approval module
+  // ---------------------------------------------------------------------------
+
+  public shared ({ caller }) func requestApproval() : async () {
+    UserApproval.requestApproval(approvalState, caller);
+  };
+
+  public shared ({ caller }) func setApproval(user : Principal, status : UserApproval.ApprovalStatus) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    UserApproval.setApproval(approvalState, user, status);
+  };
+
+  public query ({ caller }) func listApprovals() : async [UserApproval.UserApprovalInfo] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
+      Runtime.trap("Unauthorized: Only admins can perform this action");
+    };
+    UserApproval.listApprovals(approvalState);
   };
 
   // ---------------------------------------------------------------------------
@@ -671,7 +680,7 @@ actor {
   // ---------------------------------------------------------------------------
 
   public shared ({ caller }) func assignRole(user : Principal, role : Role) : async () {
-    requireApprovedUser(caller);
+    requireMasterAdmin(caller);
 
     let userData = switch (users.get(user)) {
       case (null) { Runtime.trap("User does not exist") };
@@ -711,7 +720,7 @@ actor {
   // ---------------------------------------------------------------------------
 
   public shared ({ caller }) func submitPost(category : PostCategory, content : Text, image : ?Storage.ExternalBlob) : async () {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     let user = switch (users.get(caller)) {
       case (null) { Runtime.trap("User does not exist") };
@@ -779,7 +788,7 @@ actor {
   };
 
   public shared ({ caller }) func approvePost(postId : Nat) : async () {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     if (not isExecutiveCoreOrMasterAdmin(caller)) {
       Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can approve posts");
@@ -805,7 +814,7 @@ actor {
   };
 
   public shared ({ caller }) func deletePost(postId : Nat) : async () {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     let post = switch (posts.get(postId)) {
       case (null) { Runtime.trap("Post does not exist") };
@@ -820,7 +829,7 @@ actor {
   };
 
   public shared ({ caller }) func toggleLike(postId : Nat) : async () {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     let post = switch (posts.get(postId)) {
       case (null) { Runtime.trap("Post does not exist") };
@@ -846,7 +855,7 @@ actor {
   };
 
   public shared ({ caller }) func addComment(postId : Nat, content : Text) : async () {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     let post = switch (posts.get(postId)) {
       case (null) { Runtime.trap("Post does not exist") };
@@ -874,7 +883,7 @@ actor {
   };
 
   public shared ({ caller }) func deleteComment(postId : Nat, commentIndex : Nat) : async () {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     let commentList = switch (comments.get(postId)) {
       case (null) { Runtime.trap("No comments for this post") };
@@ -999,7 +1008,7 @@ actor {
     banner : ?Storage.ExternalBlob,
     registrationLimit : ?Nat,
   ) : async () {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     if (not isLTOrAbove(caller) and not isMCOrELT(caller)) {
       Runtime.trap("Unauthorized: Only LT, MC, ELT, or admins can create events");
@@ -1046,7 +1055,7 @@ actor {
   };
 
   public shared ({ caller }) func approveEvent(eventId : Nat) : async () {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     if (not isExecutiveCoreOrMasterAdmin(caller)) {
       Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can approve events");
@@ -1104,7 +1113,7 @@ actor {
   };
 
   public shared ({ caller }) func registerForEvent(eventId : Nat) : async () {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     let event = switch (events.get(eventId)) {
       case (null) { Runtime.trap("Event does not exist") };
@@ -1126,7 +1135,7 @@ actor {
   };
 
   public shared ({ caller }) func togglePaid(eventId : Nat, user : Principal) : async () {
-    requireApprovedUser(caller);
+    requireApprovedUserQuery(caller);
 
     if (not isExecutiveCoreOrMasterAdmin(caller)) {
       Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can update payment status");
@@ -1190,121 +1199,31 @@ actor {
   };
 
   // ---------------------------------------------------------------------------
-  // Public: approval workflow
+  // Member removal — admin or root admin only
   // ---------------------------------------------------------------------------
 
-  public shared ({ caller }) func requestApproval() : async () {
+  public shared ({ caller }) func removeMember(user : Principal) : async () {
     if (caller.isAnonymous()) {
-      Runtime.trap("Unauthorized: Anonymous users cannot request approval");
+      Runtime.trap("Unauthorized: Anonymous users cannot perform this action");
     };
-    UserApproval.requestApproval(approvalState, caller);
-  };
-
-  public shared ({ caller }) func setApproval(user : Principal, status : UserApproval.ApprovalStatus) : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
-      Runtime.trap("Unauthorized: Only admins can perform this action");
+    // Only admins (which includes root admin / master admin) may remove members
+    if (not AccessControl.isAdmin(accessControlState, caller) and not isMasterAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only admins or root admin can remove members");
     };
-    UserApproval.setApproval(approvalState, user, status);
-  };
 
-  public query ({ caller }) func listApprovals() : async [UserApproval.UserApprovalInfo] {
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
-      Runtime.trap("Unauthorized: Only admins can perform this action");
+    if (user.isAnonymous()) {
+      Runtime.trap("Cannot delete anonymous principal");
     };
-    UserApproval.listApprovals(approvalState);
-  };
-
-  /// Approve or reject a pending user registration.
-  /// Permitted callers: AccessControl admins (#admin role) OR executive core/master admin.
-  public shared ({ caller }) func approveOrRejectUser(
-    user : Principal,
-    status : UserApproval.ApprovalStatus,
-  ) : async {
-    updatedUsers : [(Principal, User)];
-    approvals : [UserApproval.UserApprovalInfo];
-  } {
-    // Allow callers who hold the AccessControl #admin role OR are executive core / master admin.
-    requireAdminOrExecutive(caller);
-
-    UserApproval.setApproval(approvalState, user, status);
 
     switch (users.get(user)) {
-      case (null) {};
+      case (null) { Runtime.trap("User not found") };
       case (?u) {
         if (u.email == "graph.dust@gmail.com") {
-          return {
-            updatedUsers = [];
-            approvals = [];
-          };
+          Runtime.trap("Deleting the root admin user is not permitted");
         };
-        let isApproved = switch (status) {
-          case (#approved) { true };
-          case (#pending) { false };
-          case (#rejected) { false };
-        };
-        users.add(user, { u with isApproved });
-
-        if (isApproved) {
-          AccessControl.assignRole(accessControlState, caller, user, #user);
-          addNotification(
-            user,
-            "Your account has been approved! Welcome to the community.",
-            #accountApproved,
-          );
-        };
+        users.remove(user);
       };
     };
-
-    {
-      updatedUsers = users.entries().toArray().filter(
-        func((_, u) : (Principal, User)) : Bool { not u.isApproved }
-      );
-      approvals = UserApproval.listApprovals(approvalState);
-    };
-  };
-
-  /// View pending approvals.
-  /// Permitted callers: AccessControl admins (#admin role) OR executive core / master admin.
-  public query ({ caller }) func getPendingApprovals() : async {
-    users : [(Principal, User)];
-    approvals : [UserApproval.UserApprovalInfo];
-  } {
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin) and not isExecutiveCoreOrMasterAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only admins or Executive Core and above can view pending approvals");
-    };
-
-    let pendingApprovalUsers = users.entries().toArray().filter(
-      func((_, u) : (Principal, User)) : Bool { not u.isApproved }
-    );
-
-    let pendingApprovals = UserApproval.listApprovals(approvalState);
-
-    {
-      users = pendingApprovalUsers;
-      approvals = pendingApprovals;
-    };
-  };
-
-  public query ({ caller }) func getAllUsers() : async [(Principal, User)] {
-    requireApprovedUserQuery(caller);
-
-    if (not isExecutiveCoreOrMasterAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can view all users");
-    };
-
-    users.entries().toArray();
-  };
-
-  /// View pending (unapproved) users.
-  /// Permitted callers: AccessControl admins (#admin role) OR executive core / master admin.
-  public query ({ caller }) func getPendingUsers() : async [(Principal, User)] {
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin) and not isExecutiveCoreOrMasterAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only admins or Executive Core and above can view pending users");
-    };
-
-    users.entries().toArray().filter(
-      func((_, u) : (Principal, User)) : Bool { not u.isApproved }
-    );
   };
 
   // ---------------------------------------------------------------------------
