@@ -1,452 +1,263 @@
-import { useState } from 'react';
-import { Role, ApprovalStatus, type UserApprovalInfo } from '../backend';
-import {
-  useListApprovals,
-  useSetApproval,
-  useAssignRole,
-  useStartNewTenure,
-  useGetCallerUserProfile,
-} from '../hooks/useQueries';
-import { canAccessAdmin, canAssignRoles, canApproveUsers, canManageTenure, getRoleDisplayName } from '../utils/permissions';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Shield, Users, UserCheck, RefreshCw, CheckCircle, XCircle, Crown } from 'lucide-react';
-import { toast } from 'sonner';
-import type { Principal } from '@dfinity/principal';
-
-const ASSIGNABLE_ROLES: { value: Role; label: string }[] = [
-  { value: Role.president, label: 'President' },
-  { value: Role.vicePresident, label: 'Vice President' },
-  { value: Role.secretaryTreasurer, label: 'Secretary Treasurer' },
-  { value: Role.lt, label: 'Leadership Team' },
-  { value: Role.mc, label: 'Membership Committee' },
-  { value: Role.elt, label: 'Extended Leadership Team' },
-  { value: Role.member, label: 'Member' },
-];
-
-function ApprovalStatusBadge({ status }: { status: ApprovalStatus }) {
-  const variants: Record<ApprovalStatus, { label: string; className: string }> = {
-    [ApprovalStatus.pending]: { label: 'Pending', className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
-    [ApprovalStatus.approved]: { label: 'Approved', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
-    [ApprovalStatus.rejected]: { label: 'Rejected', className: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
-  };
-  const v = variants[status] ?? variants[ApprovalStatus.pending];
-  return (
-    <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${v.className}`}>
-      {v.label}
-    </span>
-  );
-}
-
-function UserApprovalRow({ info, onApprove, onReject, onAssignRole, canAssign }: {
-  info: UserApprovalInfo;
-  onApprove: (p: Principal) => void;
-  onReject: (p: Principal) => void;
-  onAssignRole: (p: Principal, role: Role) => void;
-  canAssign: boolean;
-}) {
-  const [selectedRole, setSelectedRole] = useState<Role>(Role.member);
-  const principalStr = info.principal.toString();
-
-  return (
-    <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/30 transition-colors">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-mono text-foreground truncate">{principalStr}</p>
-        <div className="mt-1">
-          <ApprovalStatusBadge status={info.status} />
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {info.status === ApprovalStatus.pending && (
-          <>
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-green-700 border-green-300 hover:bg-green-50 dark:text-green-400 dark:border-green-700 dark:hover:bg-green-900/20"
-              onClick={() => onApprove(info.principal)}
-            >
-              <CheckCircle className="w-3.5 h-3.5 mr-1" />
-              Approve
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-red-700 border-red-300 hover:bg-red-50 dark:text-red-400 dark:border-red-700 dark:hover:bg-red-900/20"
-              onClick={() => onReject(info.principal)}
-            >
-              <XCircle className="w-3.5 h-3.5 mr-1" />
-              Reject
-            </Button>
-          </>
-        )}
-        {canAssign && info.status === ApprovalStatus.approved && (
-          <div className="flex items-center gap-2">
-            <Select value={selectedRole} onValueChange={(v) => setSelectedRole(v as Role)}>
-              <SelectTrigger className="w-44 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ASSIGNABLE_ROLES.map(r => (
-                  <SelectItem key={r.value} value={r.value} className="text-xs">
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onAssignRole(info.principal, selectedRole)}
-            >
-              Assign
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+import React, { useState } from "react";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import { useGetCallerUserProfile, useListApprovals, useSetApproval, useAssignRole } from "../hooks/useQueries";
+import { Role, ApprovalStatus, User } from "../backend";
+import { roleToLabel, roleBadgeClass, ROOT_ADMIN_EMAIL } from "../lib/utils";
+import { canAccessAdmin } from "../utils/permissions";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Shield, Users, UserCheck, UserX, Crown } from "lucide-react";
+import { getInitials } from "../lib/utils";
+import TenureManagement from "../components/admin/TenureManagement";
 
 export default function AdminPage() {
-  const { data: userProfile, isLoading: profileLoading } = useGetCallerUserProfile();
-  const { data: approvals, isLoading: approvalsLoading, refetch: refetchApprovals } = useListApprovals();
+  const { identity } = useInternetIdentity();
+  const { data: userProfile } = useGetCallerUserProfile();
+  const { data: approvals, isLoading: approvalsLoading } = useListApprovals();
   const setApprovalMutation = useSetApproval();
   const assignRoleMutation = useAssignRole();
-  const startTenureMutation = useStartNewTenure();
 
-  const userRole = userProfile?.role;
-  const hasAdminAccess = canAccessAdmin(userRole);
+  const [selectedRoles, setSelectedRoles] = useState<Record<string, Role>>({});
 
-  // Tenure form state
-  const [presidentPrincipal, setPresidentPrincipal] = useState('');
-  const [vpPrincipal, setVpPrincipal] = useState('');
-  const [stPrincipal, setStPrincipal] = useState('');
-  const [tenureStart, setTenureStart] = useState('');
-  const [tenureEnd, setTenureEnd] = useState('');
-
-  if (profileLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
+  // Root admin bypass: if the logged-in user's email is the root admin email,
+  // grant full admin access regardless of stored role state
+  const isRootAdminUser = userProfile?.email === ROOT_ADMIN_EMAIL;
+  const userRole = isRootAdminUser ? Role.rootAdmin : userProfile?.role;
+  const hasAdminAccess = isRootAdminUser || canAccessAdmin(userRole);
 
   if (!hasAdminAccess) {
     return (
-      <div className="flex items-center justify-center min-h-screen p-6">
-        <Card className="max-w-md w-full text-center">
-          <CardContent className="pt-8 pb-8">
-            <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-xl font-bold text-foreground mb-2">Access Restricted</h2>
-            <p className="text-muted-foreground text-sm">
-              You don't have permission to access the admin panel.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <Shield className="w-16 h-16 text-muted-foreground" />
+        <h2 className="text-2xl font-bold text-foreground">Access Restricted</h2>
+        <p className="text-muted-foreground text-center max-w-md">
+          You don't have permission to access the admin panel. This area is reserved for administrators and leadership team members.
+        </p>
       </div>
     );
   }
 
-  const handleApprove = async (principal: Principal) => {
-    try {
-      await setApprovalMutation.mutateAsync({ user: principal, status: ApprovalStatus.approved });
-      toast.success('User approved successfully');
-      refetchApprovals();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to approve user');
-    }
-  };
-
-  const handleReject = async (principal: Principal) => {
-    try {
-      await setApprovalMutation.mutateAsync({ user: principal, status: ApprovalStatus.rejected });
-      toast.success('User rejected');
-      refetchApprovals();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to reject user');
-    }
-  };
-
-  const handleAssignRole = async (principal: Principal, role: Role) => {
-    try {
-      await assignRoleMutation.mutateAsync({ user: principal, role });
-      toast.success(`Role assigned: ${getRoleDisplayName(role)}`);
-      refetchApprovals();
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to assign role');
-    }
-  };
-
-  const handleStartTenure = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!presidentPrincipal || !vpPrincipal || !stPrincipal || !tenureStart || !tenureEnd) {
-      toast.error('Please fill in all fields');
-      return;
-    }
-    try {
-      const { Principal: PrincipalClass } = await import('@dfinity/principal');
-      await startTenureMutation.mutateAsync({
-        president: PrincipalClass.fromText(presidentPrincipal),
-        vicePresident: PrincipalClass.fromText(vpPrincipal),
-        secretaryTreasurer: PrincipalClass.fromText(stPrincipal),
-        startDate: BigInt(new Date(tenureStart).getTime()) * 1_000_000n,
-        endDate: BigInt(new Date(tenureEnd).getTime()) * 1_000_000n,
-      });
-      toast.success('New tenure started successfully');
-      setPresidentPrincipal('');
-      setVpPrincipal('');
-      setStPrincipal('');
-      setTenureStart('');
-      setTenureEnd('');
-    } catch (err: any) {
-      toast.error(err?.message || 'Failed to start tenure');
-    }
-  };
-
   const pendingApprovals = approvals?.filter(a => a.status === ApprovalStatus.pending) ?? [];
-  const allApprovals = approvals ?? [];
+  const approvedUsers = approvals?.filter(a => a.status === ApprovalStatus.approved) ?? [];
+
+  const handleApprove = (principal: any) => {
+    setApprovalMutation.mutate({ user: principal, status: ApprovalStatus.approved });
+  };
+
+  const handleReject = (principal: any) => {
+    setApprovalMutation.mutate({ user: principal, status: ApprovalStatus.rejected });
+  };
+
+  const handleAssignRole = (principal: any) => {
+    const role = selectedRoles[principal.toString()];
+    if (!role) return;
+    assignRoleMutation.mutate({ user: principal, role });
+  };
+
+  const availableRoles = [
+    Role.member,
+    Role.elt,
+    Role.mc,
+    Role.lt,
+    Role.secretaryTreasurer,
+    Role.vicePresident,
+    Role.president,
+  ];
+
+  // Roles that can manage tenures (rootAdmin + senior leadership)
+  const canManageTenure = isRootAdminUser || [
+    Role.rootAdmin,
+    Role.president,
+    Role.vicePresident,
+    Role.secretaryTreasurer,
+  ].includes(userRole as Role);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b border-border bg-card/50 px-6 py-5">
-        <div className="max-w-5xl mx-auto flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-            <Shield className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-foreground">Admin Panel</h1>
-            <p className="text-sm text-muted-foreground">
-              Manage users, roles, and chapter settings
-              {userRole && (
-                <span className="ml-2 text-xs font-medium text-primary">
-                  ({getRoleDisplayName(userRole)})
-                </span>
-              )}
-            </p>
-          </div>
+    <div className="p-6 max-w-6xl mx-auto space-y-6">
+      <div className="flex items-center gap-3">
+        <Shield className="w-8 h-8 text-primary" />
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Admin Panel</h1>
+          <p className="text-muted-foreground">Manage users, approvals, and roles</p>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-6 py-6">
-        <Tabs defaultValue="approvals">
-          <TabsList className="mb-6">
-            <TabsTrigger value="approvals" className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4" />
-              User Approvals
-              {pendingApprovals.length > 0 && (
-                <Badge variant="destructive" className="ml-1 text-xs px-1.5 py-0">
-                  {pendingApprovals.length}
-                </Badge>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="roles" className="flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Role Assignment
-            </TabsTrigger>
-            {canManageTenure(userRole) && (
-              <TabsTrigger value="tenure" className="flex items-center gap-2">
-                <Crown className="w-4 h-4" />
-                Tenure
-              </TabsTrigger>
+      <Tabs defaultValue="approvals">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="approvals">
+            <UserCheck className="w-4 h-4 mr-2" />
+            Approvals
+            {pendingApprovals.length > 0 && (
+              <Badge variant="destructive" className="ml-2 text-xs">
+                {pendingApprovals.length}
+              </Badge>
             )}
-          </TabsList>
-
-          {/* Approvals Tab */}
-          <TabsContent value="approvals">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Pending Approvals</CardTitle>
-                  <CardDescription>Review and approve new member registrations</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => refetchApprovals()}>
-                  <RefreshCw className="w-4 h-4 mr-1" />
-                  Refresh
-                </Button>
-              </CardHeader>
-              <CardContent>
-                {approvalsLoading ? (
-                  <div className="text-center py-8 text-muted-foreground">Loading approvals...</div>
-                ) : pendingApprovals.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <UserCheck className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                    <p>No pending approvals</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {pendingApprovals.map(info => (
-                      <UserApprovalRow
-                        key={info.principal.toString()}
-                        info={info}
-                        onApprove={handleApprove}
-                        onReject={handleReject}
-                        onAssignRole={handleAssignRole}
-                        canAssign={canAssignRoles(userRole)}
-                      />
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Role Assignment Tab */}
-          <TabsContent value="roles">
-            <Card>
-              <CardHeader>
-                <CardTitle>Role Assignment</CardTitle>
-                <CardDescription>Assign roles to approved members</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {approvalsLoading ? (
-                  <div className="text-center py-8 text-muted-foreground">Loading members...</div>
-                ) : allApprovals.filter(a => a.status === ApprovalStatus.approved).length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                    <p>No approved members yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {allApprovals
-                      .filter(a => a.status === ApprovalStatus.approved)
-                      .map(info => (
-                        <UserApprovalRow
-                          key={info.principal.toString()}
-                          info={info}
-                          onApprove={handleApprove}
-                          onReject={handleReject}
-                          onAssignRole={handleAssignRole}
-                          canAssign={canAssignRoles(userRole)}
-                        />
-                      ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Tenure Tab */}
-          {canManageTenure(userRole) && (
-            <TabsContent value="tenure">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Start New Tenure</CardTitle>
-                  <CardDescription>
-                    Begin a new chapter tenure. This will reset all member roles to Member (except Root Admin).
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <form onSubmit={handleStartTenure} className="space-y-4 max-w-lg">
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        President Principal ID
-                      </label>
-                      <input
-                        type="text"
-                        value={presidentPrincipal}
-                        onChange={e => setPresidentPrincipal(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="aaaaa-aa..."
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        Vice President Principal ID
-                      </label>
-                      <input
-                        type="text"
-                        value={vpPrincipal}
-                        onChange={e => setVpPrincipal(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="aaaaa-aa..."
-                        required
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">
-                        Secretary Treasurer Principal ID
-                      </label>
-                      <input
-                        type="text"
-                        value={stPrincipal}
-                        onChange={e => setStPrincipal(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="aaaaa-aa..."
-                        required
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">
-                          Start Date
-                        </label>
-                        <input
-                          type="date"
-                          value={tenureStart}
-                          onChange={e => setTenureStart(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">
-                          End Date
-                        </label>
-                        <input
-                          type="date"
-                          value={tenureEnd}
-                          onChange={e => setTenureEnd(e.target.value)}
-                          className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <Button
-                      type="submit"
-                      disabled={startTenureMutation.isPending}
-                      className="w-full"
-                    >
-                      {startTenureMutation.isPending ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Starting Tenure...
-                        </>
-                      ) : (
-                        <>
-                          <Crown className="w-4 h-4 mr-2" />
-                          Start New Tenure
-                        </>
-                      )}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
-            </TabsContent>
+          </TabsTrigger>
+          <TabsTrigger value="roles">
+            <Crown className="w-4 h-4 mr-2" />
+            Role Assignment
+          </TabsTrigger>
+          {canManageTenure && (
+            <TabsTrigger value="tenure">
+              <Users className="w-4 h-4 mr-2" />
+              Tenure
+            </TabsTrigger>
           )}
-        </Tabs>
-      </div>
+        </TabsList>
 
-      {/* Footer */}
-      <footer className="border-t border-border mt-12 py-6 px-6 text-center text-xs text-muted-foreground">
-        <p>
-          © {new Date().getFullYear()} AnthroVerse. Built with{' '}
-          <span className="text-rose-500">♥</span> using{' '}
-          <a
-            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-foreground transition-colors"
-          >
-            caffeine.ai
-          </a>
-        </p>
-      </footer>
+        <TabsContent value="approvals" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <UserCheck className="w-5 h-5" />
+                Pending Approvals ({pendingApprovals.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {approvalsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : pendingApprovals.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No pending approvals</p>
+              ) : (
+                <div className="space-y-3">
+                  {pendingApprovals.map((approval) => (
+                    <div
+                      key={approval.principal.toString()}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border bg-card"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-9 h-9">
+                          <AvatarFallback className="text-xs bg-muted">
+                            {approval.principal.toString().slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {approval.principal.toString().slice(0, 20)}...
+                          </p>
+                          <Badge variant="outline" className="text-xs">
+                            Pending
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprove(approval.principal)}
+                          disabled={setApprovalMutation.isPending}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <UserCheck className="w-3 h-3 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleReject(approval.principal)}
+                          disabled={setApprovalMutation.isPending}
+                        >
+                          <UserX className="w-3 h-3 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="roles" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Crown className="w-5 h-5" />
+                Assign Roles to Approved Members
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {approvalsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : approvedUsers.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No approved members yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {approvedUsers.map((approval) => (
+                    <div
+                      key={approval.principal.toString()}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border bg-card"
+                    >
+                      <div className="flex items-center gap-3">
+                        <Avatar className="w-9 h-9">
+                          <AvatarFallback className="text-xs bg-muted">
+                            {approval.principal.toString().slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <p className="text-sm font-medium text-foreground">
+                          {approval.principal.toString().slice(0, 20)}...
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={selectedRoles[approval.principal.toString()] ?? ""}
+                          onValueChange={(val) =>
+                            setSelectedRoles((prev) => ({
+                              ...prev,
+                              [approval.principal.toString()]: val as Role,
+                            }))
+                          }
+                        >
+                          <SelectTrigger className="w-44">
+                            <SelectValue placeholder="Select role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableRoles.map((role) => (
+                              <SelectItem key={role} value={role}>
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${roleBadgeClass(role)}`}>
+                                  {roleToLabel(role)}
+                                </span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="sm"
+                          onClick={() => handleAssignRole(approval.principal)}
+                          disabled={
+                            !selectedRoles[approval.principal.toString()] ||
+                            assignRoleMutation.isPending
+                          }
+                        >
+                          {assignRoleMutation.isPending ? (
+                            <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            "Assign"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {canManageTenure && (
+          <TabsContent value="tenure">
+            <TenureManagement />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 }

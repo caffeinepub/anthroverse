@@ -1,322 +1,274 @@
-import { useState } from 'react';
+import React, { useState } from "react";
+import { Pin, Plus, X, Loader2, Megaphone, Smile, Image, BarChart2, Trash2, ThumbsUp, MessageCircle, CheckCircle } from "lucide-react";
 import {
-  useGetCallerUserProfile,
   useGetPosts,
+  useGetPendingPosts,
   useSubmitPost,
   useApprovePost,
   useDeletePost,
   useToggleLike,
-  useGetComments,
-  useAddComment,
-} from '../hooks/useQueries';
-import { PostCategory, PostStatus, Role } from '../backend';
-import { ExternalBlob } from '../backend';
-import { canApprovePost, canDeleteAnyPost, canCreatePost } from '../utils/permissions';
-import { formatTimestamp } from '../lib/utils';
-import { Heart, MessageCircle, Trash2, CheckCircle, ImagePlus, X, Send, Filter } from 'lucide-react';
+  useGetCallerUserProfile,
+} from "../hooks/useQueries";
+import { PostCategory, PostStatus, Role } from "../backend";
+import { categoryToLabel, formatTimestamp, getInitials, isExecutiveRole, canPostAnnouncement } from "../lib/utils";
+import { toast } from "sonner";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
+import RoleBadge from "../components/RoleBadge";
+import PostCard from "../components/feed/PostCard";
 
-const CATEGORY_LABELS: Record<PostCategory, string> = {
-  [PostCategory.general]: 'General',
-  [PostCategory.fun]: 'Fun',
-  [PostCategory.requirements]: 'Requirements',
-  [PostCategory.announcements]: 'Announcements',
-  [PostCategory.leadershipTeam]: 'Leadership Team',
-  [PostCategory.membershipCommittee]: 'Membership Committee',
-  [PostCategory.coreTeam]: 'Core Team',
-};
-
-const CATEGORY_COLORS: Record<PostCategory, string> = {
-  [PostCategory.general]: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
-  [PostCategory.fun]: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
-  [PostCategory.requirements]: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
-  [PostCategory.announcements]: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
-  [PostCategory.leadershipTeam]: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
-  [PostCategory.membershipCommittee]: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300',
-  [PostCategory.coreTeam]: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
-};
-
-interface CommentSectionProps {
-  postId: bigint;
-}
-
-function CommentSection({ postId }: CommentSectionProps) {
-  const { data: comments = [], isLoading } = useGetComments(postId);
-  const addComment = useAddComment();
-  const [text, setText] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!text.trim()) return;
-    await addComment.mutateAsync({ postId, content: text.trim() });
-    setText('');
-  };
-
-  if (isLoading) return <div className="py-2 text-xs text-muted-foreground">Loading comments…</div>;
-
-  return (
-    <div className="mt-3 space-y-2">
-      {comments.map((c, i) => (
-        <div key={i} className="flex gap-2 text-sm">
-          <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-bold shrink-0">
-            {c.author.toString().charAt(0).toUpperCase()}
-          </div>
-          <div className="flex-1 bg-muted/50 rounded-lg px-3 py-1.5">
-            <p className="text-xs font-medium text-foreground mb-0.5">{c.author.toString().slice(0, 8)}…</p>
-            <p className="text-xs text-muted-foreground">{c.content}</p>
-          </div>
-        </div>
-      ))}
-      <form onSubmit={handleSubmit} className="flex gap-2 mt-2">
-        <input
-          value={text}
-          onChange={e => setText(e.target.value)}
-          placeholder="Write a comment…"
-          className="flex-1 text-xs px-3 py-1.5 rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-        />
-        <button
-          type="submit"
-          disabled={!text.trim() || addComment.isPending}
-          className="p-1.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-        >
-          <Send className="w-3.5 h-3.5" />
-        </button>
-      </form>
-    </div>
-  );
-}
+const FEED_CATEGORIES = [
+  { value: undefined, label: "All" },
+  { value: PostCategory.announcements, label: "Announcements" },
+  { value: PostCategory.general, label: "General" },
+  { value: PostCategory.fun, label: "Fun" },
+  { value: PostCategory.requirements, label: "Requirements" },
+];
 
 export default function FeedPage() {
+  const { identity } = useInternetIdentity();
   const { data: userProfile } = useGetCallerUserProfile();
-  const [categoryFilter, setCategoryFilter] = useState<PostCategory | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<PostCategory | undefined>(undefined);
+  const [showCreate, setShowCreate] = useState(false);
+  const [postContent, setPostContent] = useState("");
+  const [postCategory, setPostCategory] = useState<PostCategory>(PostCategory.general);
+  const [showPending, setShowPending] = useState(false);
+
   const { data: posts = [], isLoading } = useGetPosts(categoryFilter);
+  const { data: pendingPosts = [] } = useGetPendingPosts();
   const submitPost = useSubmitPost();
   const approvePost = useApprovePost();
   const deletePost = useDeletePost();
   const toggleLike = useToggleLike();
 
-  const [content, setContent] = useState('');
-  const [category, setCategory] = useState<PostCategory>(PostCategory.general);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
+  const userRole = userProfile?.role ?? Role.member;
+  const isExec = isExecutiveRole(userRole);
+  const callerPrincipal = identity?.getPrincipal().toString();
 
-  const userRole = userProfile?.role;
-  // canCreatePost(role, category) — use general as the baseline check for showing the form
-  const canPost = userRole ? canCreatePost(userRole, PostCategory.general) : false;
+  // Pinned post: first published announcement or first post
+  const pinnedPost = posts.find((p) => p.category === PostCategory.announcements && p.status === PostStatus.published) ?? null;
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = ev => setImagePreview(ev.target?.result as string);
-    reader.readAsDataURL(file);
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitPost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!content.trim()) return;
-    let imageBlob: ExternalBlob | null = null;
-    if (imageFile) {
-      const bytes = new Uint8Array(await imageFile.arrayBuffer());
-      imageBlob = ExternalBlob.fromBytes(bytes as Uint8Array<ArrayBuffer>);
+    if (!postContent.trim()) return;
+    try {
+      await submitPost.mutateAsync({ category: postCategory, content: postContent.trim(), image: null });
+      setPostContent("");
+      setShowCreate(false);
+      toast.success(isExec ? "Post published!" : "Post submitted for approval");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to submit post");
     }
-    await submitPost.mutateAsync({ category, content: content.trim(), image: imageBlob });
-    setContent('');
-    setImageFile(null);
-    setImagePreview(null);
   };
 
-  const toggleComments = (postId: string) => {
-    setExpandedComments(prev => {
-      const next = new Set(prev);
-      if (next.has(postId)) next.delete(postId);
-      else next.add(postId);
-      return next;
-    });
+  const handleApprove = async (postId: bigint) => {
+    try {
+      await approvePost.mutateAsync(postId);
+      toast.success("Post approved!");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to approve");
+    }
   };
+
+  const handleDelete = async (postId: bigint) => {
+    try {
+      await deletePost.mutateAsync(postId);
+      toast.success("Post deleted");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete");
+    }
+  };
+
+  const handleLike = async (postId: bigint) => {
+    try {
+      await toggleLike.mutateAsync(postId);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to like");
+    }
+  };
+
+  const availableCategories = [
+    PostCategory.general,
+    PostCategory.fun,
+    PostCategory.requirements,
+    ...(canPostAnnouncement(userRole) ? [PostCategory.announcements] : []),
+  ];
 
   return (
-    <div className="max-w-2xl mx-auto py-6 px-4 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Community Feed</h1>
-        <div className="flex items-center gap-2">
-          <Filter className="w-4 h-4 text-muted-foreground" />
-          <select
-            value={categoryFilter ?? ''}
-            onChange={e => setCategoryFilter(e.target.value ? e.target.value as PostCategory : null)}
-            className="text-xs bg-muted text-foreground border border-border rounded-lg px-2 py-1.5 focus:outline-none"
-          >
-            <option value="">All Categories</option>
-            {Object.values(PostCategory).map(cat => (
-              <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
-            ))}
-          </select>
+    <div className="space-y-4 animate-fade-in">
+      {/* Pinned Content */}
+      {pinnedPost && (
+        <div className="pinned-card rounded-xl p-4 shadow-gold">
+          <div className="flex items-center gap-2 mb-2">
+            <Pin className="w-4 h-4 text-gold" />
+            <span className="text-xs font-semibold text-gold font-poppins uppercase tracking-wide">Pinned Announcement</span>
+          </div>
+          <p className="font-inter text-sm text-foreground leading-relaxed">{pinnedPost.content}</p>
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs text-muted-foreground">{pinnedPost.authorName}</span>
+            <span className="text-xs text-muted-foreground">·</span>
+            <span className="text-xs text-muted-foreground">{formatTimestamp(pinnedPost.timestamp)}</span>
+          </div>
         </div>
+      )}
+
+      {/* Create Post Button */}
+      <div className="bg-white rounded-xl shadow-card p-4">
+        <button
+          onClick={() => setShowCreate(!showCreate)}
+          className="w-full flex items-center gap-3 text-left"
+        >
+          <div className="w-9 h-9 rounded-full gradient-primary flex items-center justify-center text-white text-sm font-bold font-poppins flex-shrink-0">
+            {getInitials(userProfile?.name || "U")}
+          </div>
+          <span className="text-muted-foreground font-inter text-sm flex-1 bg-muted rounded-lg px-3 py-2">
+            What's on your mind?
+          </span>
+          <Plus className="w-5 h-5 text-primary-500" />
+        </button>
+
+        {showCreate && (
+          <form onSubmit={handleSubmitPost} className="mt-4 space-y-3">
+            <select
+              value={postCategory}
+              onChange={(e) => setPostCategory(e.target.value as PostCategory)}
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm font-inter focus:outline-none focus:ring-2 focus:ring-primary-500"
+            >
+              {availableCategories.map((cat) => (
+                <option key={cat} value={cat}>{categoryToLabel(cat)}</option>
+              ))}
+            </select>
+            <textarea
+              value={postContent}
+              onChange={(e) => setPostContent(e.target.value)}
+              placeholder="Write your post..."
+              rows={3}
+              className="w-full px-3 py-2 rounded-lg border border-border text-sm font-inter focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
+            />
+            <div className="flex items-center justify-between">
+              <div className="flex gap-2">
+                <button type="button" className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title="Add emoji">
+                  <Smile className="w-4 h-4" />
+                </button>
+                <button type="button" className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title="Add image">
+                  <Image className="w-4 h-4" />
+                </button>
+                <button type="button" className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground" title="Create poll">
+                  <BarChart2 className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowCreate(false)}
+                  className="px-3 py-1.5 text-sm text-muted-foreground hover:text-foreground font-inter"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitPost.isPending || !postContent.trim()}
+                  className="px-4 py-1.5 gradient-primary text-white text-sm font-semibold font-poppins rounded-lg disabled:opacity-60 flex items-center gap-1.5"
+                >
+                  {submitPost.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
+                  {isExec ? "Publish" : "Submit"}
+                </button>
+              </div>
+            </div>
+          </form>
+        )}
       </div>
 
-      {/* Create post */}
-      {canPost && (
-        <form onSubmit={handleSubmit} className="bg-card border border-border rounded-xl p-4 space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-              {userProfile?.name?.charAt(0)?.toUpperCase() ?? '?'}
+      {/* Pending Posts (admin only) */}
+      {isExec && pendingPosts.length > 0 && (
+        <div className="bg-white rounded-xl shadow-card overflow-hidden">
+          <button
+            onClick={() => setShowPending(!showPending)}
+            className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Megaphone className="w-4 h-4 text-warning" />
+              <span className="font-poppins font-semibold text-sm text-foreground">
+                Pending Approvals ({pendingPosts.length})
+              </span>
             </div>
-            <textarea
-              value={content}
-              onChange={e => setContent(e.target.value)}
-              placeholder="Share something with the community…"
-              rows={3}
-              className="flex-1 resize-none bg-transparent text-foreground placeholder:text-muted-foreground text-sm focus:outline-none"
-            />
-          </div>
-          {imagePreview && (
-            <div className="relative inline-block">
-              <img src={imagePreview} alt="Preview" className="max-h-40 rounded-lg object-cover" />
-              <button type="button" onClick={() => { setImageFile(null); setImagePreview(null); }} className="absolute top-1 right-1 bg-black/60 text-white rounded-full p-0.5">
-                <X className="w-3 h-3" />
-              </button>
+            <span className="badge-pending">{pendingPosts.length}</span>
+          </button>
+          {showPending && (
+            <div className="border-t border-border divide-y divide-border">
+              {pendingPosts.map((post) => (
+                <div key={post.id.toString()} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="text-xs text-muted-foreground font-inter mb-1">{post.authorName} · {categoryToLabel(post.category)}</p>
+                      <p className="text-sm font-inter text-foreground">{post.content}</p>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleApprove(post.id)}
+                        className="p-1.5 rounded-lg bg-success/10 text-success hover:bg-success/20 transition-colors"
+                        title="Approve"
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(post.id)}
+                        className="p-1.5 rounded-lg bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-border">
-            <div className="flex items-center gap-2">
-              <select
-                value={category}
-                onChange={e => setCategory(e.target.value as PostCategory)}
-                className="text-xs bg-muted text-foreground border border-border rounded-lg px-2 py-1.5 focus:outline-none"
-              >
-                {Object.values(PostCategory).map(cat => (
-                  <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
-                ))}
-              </select>
-              <label className="cursor-pointer p-1.5 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
-                <ImagePlus className="w-4 h-4" />
-                <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
-              </label>
-            </div>
-            <button
-              type="submit"
-              disabled={!content.trim() || submitPost.isPending}
-              className="flex items-center gap-1.5 px-4 py-1.5 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 disabled:opacity-50"
-            >
-              <Send className="w-3.5 h-3.5" />
-              {submitPost.isPending ? 'Posting…' : 'Post'}
-            </button>
-          </div>
-        </form>
+        </div>
       )}
 
-      {/* Posts */}
+      {/* Category Filters */}
+      <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+        {FEED_CATEGORIES.map(({ value, label }) => (
+          <button
+            key={label}
+            onClick={() => setCategoryFilter(value)}
+            className={`flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold font-poppins transition-colors ${
+              categoryFilter === value
+                ? "gradient-primary text-white"
+                : "bg-white text-muted-foreground hover:text-primary-700 border border-border"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Posts Feed */}
       {isLoading ? (
         <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
         </div>
       ) : posts.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <p>No posts yet. Be the first to share something!</p>
+        <div className="text-center py-12 bg-white rounded-xl shadow-card">
+          <Megaphone className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <p className="font-poppins font-semibold text-foreground">No posts yet</p>
+          <p className="text-sm text-muted-foreground font-inter mt-1">Be the first to share something!</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {posts.map(post => {
-            const postIdStr = post.id.toString();
-            const isLiked = false;
-            const likeCount = post.likes.length;
-            const showComments = expandedComments.has(postIdStr);
-            const canApprove = userRole ? canApprovePost(userRole) : false;
-            const canDelete = userRole ? canDeleteAnyPost(userRole) : false;
-            const imageUrl = post.image ? post.image.getDirectURL() : null;
-
-            return (
-              <article key={postIdStr} className="bg-card border border-border rounded-xl p-4 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center text-sm font-bold text-primary shrink-0">
-                      {post.authorName.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{post.authorName}</p>
-                      <p className="text-xs text-muted-foreground">{formatTimestamp(post.timestamp)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${CATEGORY_COLORS[post.category]}`}>
-                      {CATEGORY_LABELS[post.category]}
-                    </span>
-                    {post.status === PostStatus.pending && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
-                        Pending
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <p className="text-sm text-foreground whitespace-pre-wrap">{post.content}</p>
-
-                {imageUrl && (
-                  <img src={imageUrl} alt="Post image" className="w-full rounded-lg object-cover max-h-80" />
-                )}
-
-                <div className="flex items-center gap-3 pt-1 border-t border-border">
-                  <button
-                    onClick={() => toggleLike.mutate(post.id)}
-                    disabled={toggleLike.isPending}
-                    className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${isLiked ? 'text-rose-500' : 'text-muted-foreground hover:text-rose-500'}`}
-                  >
-                    <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-                    {likeCount}
-                  </button>
-                  <button
-                    onClick={() => toggleComments(postIdStr)}
-                    className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Comments
-                  </button>
-                  <div className="flex-1" />
-                  {canApprove && post.status === PostStatus.pending && (
-                    <button
-                      onClick={() => approvePost.mutate(post.id)}
-                      disabled={approvePost.isPending}
-                      className="flex items-center gap-1 text-xs font-medium text-green-600 hover:text-green-700 transition-colors disabled:opacity-50"
-                    >
-                      <CheckCircle className="w-4 h-4" />
-                      Approve
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button
-                      onClick={() => deletePost.mutate(post.id)}
-                      disabled={deletePost.isPending}
-                      className="flex items-center gap-1 text-xs font-medium text-destructive hover:text-destructive/80 transition-colors disabled:opacity-50"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-
-                {showComments && <CommentSection postId={post.id} />}
-              </article>
-            );
-          })}
+        <div className="space-y-3">
+          {posts.map((post) => (
+            <PostCard
+              key={post.id.toString()}
+              post={post}
+              callerPrincipal={callerPrincipal}
+              userRole={userRole}
+              onLike={handleLike}
+              onApprove={handleApprove}
+              onDelete={handleDelete}
+            />
+          ))}
         </div>
       )}
-
-      {/* Footer */}
-      <footer className="text-center text-xs text-muted-foreground pt-4 pb-2">
-        <p>
-          © {new Date().getFullYear()} AnthroVerse — Built with{' '}
-          <span className="text-rose-500">♥</span>{' '}
-          using{' '}
-          <a
-            href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname || 'anthroverse')}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-foreground"
-          >
-            caffeine.ai
-          </a>
-        </p>
-      </footer>
     </div>
   );
 }

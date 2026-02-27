@@ -125,36 +125,85 @@ export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
   'addComment' : ActorMethod<[bigint, string], undefined>,
   /**
-   * / Approve a pending event. Only Root Admin, President, VP, and ST may call this.
+   * / Approve a pending event. Only Executive Core + MasterAdmin may approve.
    */
   'approveEvent' : ActorMethod<[bigint], undefined>,
+  /**
+   * / Approve a pending post. Only Executive Core + MasterAdmin may approve.
+   */
   'approvePost' : ActorMethod<[bigint], undefined>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
+  /**
+   * / Assign a role to a user.
+   * / Rules:
+   * /   - Only MasterAdmin can assign President, VP, SecretaryTreasurer.
+   * /   - Executive Core + MasterAdmin can assign other roles (LT, MC, ELT, Member).
+   * /   - No one can change the MasterAdmin's role.
+   */
   'assignRole' : ActorMethod<[Principal, Role], undefined>,
+  /**
+   * / Create an event.
+   * / Executive Core + MasterAdmin publish directly; others submit as pending.
+   */
   'createEvent' : ActorMethod<
     [string, string, Time, [] | [ExternalBlob], [] | [bigint]],
     undefined
   >,
+  /**
+   * / Delete a comment.
+   * / Rules:
+   * /   - Executive Core + MasterAdmin can delete any comment.
+   * /   - Regular users can only delete their own comments.
+   */
+  'deleteComment' : ActorMethod<[bigint, bigint], undefined>,
+  /**
+   * / Delete a post.
+   * / Rules:
+   * /   - Executive Core + MasterAdmin can delete any post.
+   * /   - Regular users can only delete their own posts.
+   */
   'deletePost' : ActorMethod<[bigint], undefined>,
+  /**
+   * / Get all users. Only Executive Core + MasterAdmin.
+   */
+  'getAllUsers' : ActorMethod<[], Array<[Principal, User]>>,
+  /**
+   * / Returns the caller's full profile. MasterAdmin enforcement is applied here.
+   */
   'getCallerUserProfile' : ActorMethod<[], [] | [User]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getComments' : ActorMethod<[bigint], Array<Comment>>,
   /**
-   * / Get registrations for an event.
-   * / Only senior leadership can view the full registration list with payment status.
+   * / Get event registrations. Only Executive Core + MasterAdmin.
    */
   'getEventRegistrations' : ActorMethod<[bigint], Array<Registration>>,
   /**
-   * / Returns only approved events to regular users.
-   * / Senior leadership (rootAdmin, president, VP, ST) can also see pending events.
+   * / Get events. Regular members see only approved events.
+   * / Executive Core + MasterAdmin see all (including pending).
    */
   'getEvents' : ActorMethod<[], Array<Event>>,
   'getMyNotifications' : ActorMethod<[], Array<Notification>>,
   'getMyPosts' : ActorMethod<[], Array<PostView>>,
+  'getMyRegistrations' : ActorMethod<[], Array<Registration>>,
+  /**
+   * / Get pending events. Only Executive Core + MasterAdmin.
+   */
+  'getPendingEvents' : ActorMethod<[], Array<Event>>,
+  /**
+   * / Get pending posts. Only Executive Core + MasterAdmin may view pending posts.
+   */
+  'getPendingPosts' : ActorMethod<[], Array<PostView>>,
+  /**
+   * / Get pending (unapproved) users. Only MasterAdmin.
+   */
+  'getPendingUsers' : ActorMethod<[], Array<[Principal, User]>>,
   'getPosts' : ActorMethod<[[] | [PostCategory]], Array<PostView>>,
   'getUserProfile' : ActorMethod<[Principal], [] | [User]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isCallerApproved' : ActorMethod<[], boolean>,
+  /**
+   * / List pending approvals. Only MasterAdmin may view.
+   */
   'listApprovals' : ActorMethod<[], Array<UserApprovalInfo>>,
   'markNotificationsRead' : ActorMethod<[], undefined>,
   'registerForEvent' : ActorMethod<[bigint], undefined>,
@@ -162,6 +211,9 @@ export interface _SERVICE {
   'requestApproval' : ActorMethod<[], undefined>,
   'saveCallerUserProfile' : ActorMethod<[User], undefined>,
   'searchPostsByMember' : ActorMethod<[string], Array<PostView>>,
+  /**
+   * / Approve or reject a user. Only MasterAdmin may approve users.
+   */
   'setApproval' : ActorMethod<[Principal, ApprovalStatus], undefined>,
   'startNewTenure' : ActorMethod<
     [Principal, Principal, Principal, Time, Time],
@@ -173,8 +225,7 @@ export interface _SERVICE {
   >,
   'toggleLike' : ActorMethod<[bigint], undefined>,
   /**
-   * / Toggle the isPaid flag on an event registration.
-   * / Only Root Admin, President, Vice President, and Secretary Treasurer may call this.
+   * / Mark payment status. Only Executive Core + MasterAdmin.
    */
   'togglePaid' : ActorMethod<[bigint, Principal], undefined>,
   'uploadProfilePic' : ActorMethod<[ExternalBlob], undefined>,

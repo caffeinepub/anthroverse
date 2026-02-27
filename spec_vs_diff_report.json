@@ -1,33 +1,196 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-26T06:56:06.350Z",
-  "summary": "The diff modifies backend/main.mo and frontend/src/App.tsx (along with supporting files) to address the root admin blank page issue. REQ-30 and REQ-31 appear partially implemented in App.tsx with fallback profile synthesis and bypass logic. REQ-32 appears partially implemented in main.mo with an ensureRootAdminUser helper. However, due to truncation of both main.mo and App.tsx, full verification of all acceptance criteria is not possible. Based on available evidence, the core structures are present but some details cannot be confirmed.",
+  "generatedAt": "2026-02-27T02:47:19.825Z",
+  "summary": "The diff implements significant portions of the AnthroVerse platform including frontend pages, components, design system, and backend structure. However, many critical backend requirements are only partially or not implemented, and several frontend features are missing or incomplete compared to the detailed spec.",
   "missing_requirements": [
     {
-      "id": "REQ-32",
-      "requirement": "In main.mo, add a guard at the entry point of getMyProfile so that if the caller's email is exactly 'graph.dust@gmail.com' and their record is missing or has isApproved = false or role != #rootAdmin, the record is created or updated to isApproved = true and role = #rootAdmin before returning.",
-      "reason": "The diff shows an ensureRootAdminUser helper function in main.mo, but the file is truncated before showing whether this function is actually called within getMyProfile or any equivalent profile-fetch function. It is unclear if the guard is wired into getMyProfile as required.",
+      "id": "REQ-1",
+      "requirement": "Complete backend stable data stores including: Roles (id, name, type: main|sub, createdBy, createdAt), UserRoles (many-to-many), Polls (id, postId, question, options, votes), Registrations with id field, Tenures (id, tenureName), PinnedContent (single record), SavedPosts, and full Notification fields (id, userId, type, message, isRead, createdAt)",
+      "reason": "The backend main.mo uses a simplified Role enum instead of a proper Roles collection with id/name/type/createdBy fields. No Polls type is defined. Registration lacks an 'id' field. Tenure lacks 'id' and 'tenureName'. PinnedContent is not defined as a single stable record. SavedPosts collection is missing.",
       "evidence": [
         "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "requirement": "On every call that retrieves or modifies the caller's profile, automatically ensure MasterAdmin role is assigned if email is graph.dust@gmail.com. Expose getMyProfile query returning full profile including all assigned roles.",
+      "reason": "The backend uses a simplified isMasterAdmin helper but there is no confirmed automatic role enforcement on every profile call. The function is named getCallerUserProfile in hooks, not getMyProfile. Auto-assignment of MasterAdmin role on profile access is not confirmed in the truncated backend.",
+      "evidence": [
+        "backend/main.mo",
+        "frontend/src/hooks/useQueries.ts"
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "requirement": "Start New Tenure backend function: deactivate all tenures, create new tenure, remove UserRole assignments for President/VP/ST/LT/MC/ELT and sub-roles (except MasterAdmin for graph.dust@gmail.com), assign new President/VP/ST from provided principals, emit notifications to all members.",
+      "reason": "The Tenure type in main.mo embeds president/VP/ST principals directly rather than using a UserRoles mapping. The full startNewTenure function with all required steps is not visible in the truncated code and the role-clearing logic is not confirmed.",
+      "evidence": [
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "requirement": "Full Post/Feed backend functions including reactToPost (emoji), savePost/unsavePost, getSavedPosts, poll support in createPost. Posts and comments must store mediaUrls as array of text. Polls stored with question + options + per-option vote counts.",
+      "reason": "The Post type in main.mo uses a single optional image blob rather than mediaUrls array of text. No Poll type is defined in backend. No reactToPost (emoji reactions) function is visible — only toggleLike exists. savePost/unsavePost/getSavedPosts are not confirmed in backend.",
+      "evidence": [
+        "backend/main.mo",
+        "frontend/src/hooks/useQueries.ts"
+      ]
+    },
+    {
+      "id": "REQ-6",
+      "requirement": "Backend pinContent/unpinContent/getPinnedContent functions with single-item enforcement and Executive Core + MasterAdmin restriction.",
+      "reason": "No PinnedContent type or pinContent/unpinContent/getPinnedContent functions are visible in the backend. The FeedPage frontend simulates pinning by finding the first published announcement locally rather than calling a backend pin function.",
+      "evidence": [
+        "backend/main.mo",
+        "frontend/src/pages/FeedPage.tsx"
+      ]
+    },
+    {
+      "id": "REQ-7",
+      "requirement": "Backend Events module with time and venue fields on Event type, markPayment(registrationId, isPaid: Bool) accepting explicit isPaid parameter, getEvents, getPendingEvents, getMyRegistrations.",
+      "reason": "The Event type in main.mo lacks 'time' and 'venue' fields. The createEvent form has these fields but they are not sent to the backend. markPayment uses togglePaid which toggles rather than accepting isPaid: Bool as specified.",
+      "evidence": [
+        "backend/main.mo",
+        "frontend/src/pages/EventsPage.tsx"
+      ]
+    },
+    {
+      "id": "REQ-8",
+      "requirement": "Backend createOrUpdateMeeting and getMeeting functions with all fields (date, time, venue, stimulant, theme, speaker, dressCode, notes, isPinned). Only Executive Core + MasterAdmin may create/update.",
+      "reason": "ChapterMeetingPage does not call any backend actor function — it uses local state only with a comment 'In a full implementation this would call a backend mutation'. No Meeting type or meeting functions are visible in backend main.mo.",
+      "evidence": [
+        "frontend/src/pages/ChapterMeetingPage.tsx",
+        "backend/main.mo"
+      ]
+    },
+    {
+      "id": "REQ-9",
+      "requirement": "Notifications emitted automatically on: meeting updated, role assigned/removed, event reminder (day-of).",
+      "reason": "The notification type enum visible in frontend does not include meeting_updated. Role assigned/removed and day-of event reminder automatic triggers are not confirmed in the visible truncated backend code.",
+      "evidence": [
+        "backend/main.mo",
+        "frontend/src/components/notifications/NotificationItem.tsx"
+      ]
+    },
+    {
+      "id": "REQ-12",
+      "requirement": "Home/Feed page: pinned content using backend getPinnedContent; pin/unpin buttons calling backend pinContent/unpinContent; post cards with emoji reaction bar (reactToPost with emoji), reshare button, save/unsave button; poll display in post cards; comment input with emoji picker, image/video/GIF attach buttons.",
+      "reason": "FeedPage determines pinned content locally instead of calling getPinnedContent. No emoji reaction bar with multiple emojis exists — only a thumbs up like button. No reshare or save/unsave buttons on post cards. No poll display. Comment input has no emoji picker or image/video/GIF attach buttons.",
+      "evidence": [
+        "frontend/src/pages/FeedPage.tsx",
+        "frontend/src/components/feed/PostCard.tsx"
+      ]
+    },
+    {
+      "id": "REQ-13",
+      "requirement": "Chapter Meeting page: Pin This Meeting button calling backend pinContent with contentType='meeting'; actual backend integration for getMeeting and createOrUpdateMeeting.",
+      "reason": "ChapterMeetingPage has no Pin This Meeting button visible in the code and does not call any backend functions — all state is local only.",
+      "evidence": [
+        "frontend/src/pages/ChapterMeetingPage.tsx"
+      ]
+    },
+    {
+      "id": "REQ-14",
+      "requirement": "Events page: Create Event form must send venue and time fields to backend; banner image upload; pending events list with reject action; registration list per event showing isPaid status badge per registration.",
+      "reason": "The createEvent mutation call in EventsPage does not include venue or time fields despite the form having them. No banner image upload is implemented. No reject action exists on pending events. Registration list does not show isPaid status badges.",
+      "evidence": [
+        "frontend/src/pages/EventsPage.tsx"
+      ]
+    },
+    {
+      "id": "REQ-15",
+      "requirement": "Profile page: My Events tab showing events registered for with isPaid status; Saved Posts tab; profile photo upload and edit.",
+      "reason": "ProfilePage is referenced in App.tsx but its implementation is not shown in the diff. Saved Posts tab and photo upload implementation cannot be verified from available evidence.",
+      "evidence": [
+        "frontend/src/App.tsx"
+      ]
+    },
+    {
+      "id": "REQ-16",
+      "requirement": "Admin page sections: Role Management with name+type:main|sub creation and deletion; Role Assignment for selecting user and role(s); Start New Tenure dialog requiring President/VP/ST principal selections; Announcement Approvals section.",
+      "reason": "AdminPage is referenced but its full implementation is not shown in the diff. Role management with main|sub type distinction, full tenure dialog with principal selectors, and announcement approvals panel cannot be verified from the diff.",
+      "evidence": [
+        "frontend/src/App.tsx"
+      ]
+    },
+    {
+      "id": "REQ-19",
+      "requirement": "Image served from frontend/public/assets/generated/anthroverse-bg.png as the auth background.",
+      "reason": "LoginPage, ProfileSetupModal, and WaitingForApproval all reference the image at '/assets/PSX_20260227_075738(1).jpg' directly, not from 'frontend/public/assets/generated/anthroverse-bg.png' as specified.",
+      "evidence": [
+        "frontend/src/pages/LoginPage.tsx",
+        "frontend/src/components/ProfileSetupModal.tsx",
+        "frontend/src/components/WaitingForApproval.tsx"
       ]
     }
   ],
   "hallucinated_features": [
     {
-      "description": "ProfileSetupModal.tsx was modified to invalidate and refetch both 'currentUserProfile' and 'isCallerApproved' queries after saving a profile, with explicit comment referencing root admin bypass via isCallerApproved.",
-      "reason": "The build request only asked for fixes in App.tsx (REQ-30, REQ-31) and main.mo (REQ-32). Modifying ProfileSetupModal.tsx with query invalidation logic and root-admin-specific comments was not requested.",
+      "description": "Private group feed functionality with GroupFeed component supporting isPrivateGroup and groupMembers fields on posts",
+      "reason": "The spec does not mention private groups or group membership on posts. The Post type in main.mo has isPrivateGroup and groupMembers fields and a GroupFeed component exists — these were not requested.",
       "evidence": [
-        "frontend/src/components/ProfileSetupModal.tsx"
+        "frontend/src/components/chapter-growth/GroupFeed.tsx",
+        "backend/main.mo"
+      ]
+    },
+    {
+      "description": "Chapter Growth page with access control based on LT role",
+      "reason": "The spec does not mention a Chapter Growth page. The frontend-file-summaries.txt and permissions.ts reference ChapterGrowthPage and canAccessChapterGrowth which were not in the requirements.",
+      "evidence": [
+        "frontend/src/utils/permissions.ts",
+        "frontend-file-summaries.txt"
+      ]
+    },
+    {
+      "description": "PostCategory variants leadershipTeam, membershipCommittee, and coreTeam beyond the four specified categories",
+      "reason": "The spec defines exactly four post categories: Announcements, General, Fun, Requirements. The implementation adds leadershipTeam, membershipCommittee, and coreTeam categories.",
+      "evidence": [
+        "backend/main.mo",
+        "frontend/src/lib/utils.ts"
+      ]
+    },
+    {
+      "description": "User-initiated Request Approval button in WaitingForApproval screen",
+      "reason": "The spec does not describe a user-initiated approval request flow. Approval is handled solely by MasterAdmin via approveUser. The WaitingForApproval component adds a Request Approval button calling useRequestApproval which was not specified.",
+      "evidence": [
+        "frontend/src/components/WaitingForApproval.tsx",
+        "frontend/src/hooks/useQueries.ts"
+      ]
+    },
+    {
+      "description": "Event registrationLimit field on Event type and createEvent mutation",
+      "reason": "The spec's Event type does not include a registrationLimit field. This was added to the backend Event type and createEvent mutation parameters.",
+      "evidence": [
+        "backend/main.mo",
+        "frontend/src/pages/EventsPage.tsx"
       ]
     }
   ],
-  "confidence": 0.55,
+  "confidence": 0.62,
   "changed_files": [
     "backend/main.mo",
     "frontend-file-summaries.txt",
     "frontend/src/App.tsx",
     "frontend/src/components/ProfileSetupModal.tsx",
+    "frontend/src/components/RoleBadge.tsx",
+    "frontend/src/components/WaitingForApproval.tsx",
+    "frontend/src/components/chapter-growth/GroupFeed.tsx",
+    "frontend/src/components/feed/PostCard.tsx",
+    "frontend/src/components/layout/MainLayout.tsx",
+    "frontend/src/components/notifications/NotificationBell.tsx",
+    "frontend/src/components/notifications/NotificationItem.tsx",
+    "frontend/src/components/notifications/NotificationPanel.tsx",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/index.css",
+    "frontend/src/lib/utils.ts",
+    "frontend/src/pages/ChapterMeetingPage.tsx",
+    "frontend/src/pages/EventsPage.tsx",
+    "frontend/src/pages/FeedPage.tsx",
+    "frontend/src/pages/LoginPage.tsx",
+    "frontend/src/utils/permissions.ts",
+    "frontend/tailwind.config.js",
     "project_state.json"
   ]
 }

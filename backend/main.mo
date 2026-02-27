@@ -127,7 +127,6 @@ import UserApproval "user-approval/approval";
     status : EventStatus;
   };
 
-  // Changed Notification type - removed #eventApproved from notificationType
   public type Notification = {
     recipient : Principal;
     message : Text;
@@ -163,6 +162,21 @@ import UserApproval "user-approval/approval";
   // Root admin helpers
   // ---------------------------------------------------------------------------
 
+  /// Returns true if the caller is the MasterAdmin (graph.dust@gmail.com).
+  /// This is the ONLY principal that has MasterAdmin privileges.
+  func isMasterAdmin(caller : Principal) : Bool {
+    switch (users.get(caller)) {
+      case (?u) { u.email == "graph.dust@gmail.com" };
+      case (null) {
+        // Fallback: if AccessControl already granted #admin (e.g. from a
+        // previous session that was persisted) treat as root admin so the
+        // caller is never locked out.
+        AccessControl.isAdmin(accessControlState, caller);
+      };
+    };
+  };
+
+  /// Ensures the root-admin user record and AccessControl state are consistent.
   func ensureRootAdminUser(caller : Principal) {
     switch (users.get(caller)) {
       case (null) {
@@ -190,21 +204,15 @@ import UserApproval "user-approval/approval";
     };
   };
 
-  func isRootAdminCaller(caller : Principal) : Bool {
-    switch (users.get(caller)) {
-      case (null) { false };
-      case (?u) { u.email == "graph.dust@gmail.com" };
-    };
-  };
-
   // ---------------------------------------------------------------------------
   // Approval helpers
   // ---------------------------------------------------------------------------
 
   func isApprovedOrAdmin(caller : Principal) : Bool {
     if (caller.isAnonymous()) { return false };
+    // MasterAdmin is always considered approved/admin regardless of approval state.
+    if (isMasterAdmin(caller)) { return true };
     if (AccessControl.hasPermission(accessControlState, caller, #admin)) { return true };
-    if (isRootAdminCaller(caller)) { return true };
     UserApproval.isApproved(approvalState, caller);
   };
 
@@ -212,14 +220,10 @@ import UserApproval "user-approval/approval";
     if (caller.isAnonymous()) {
       Runtime.trap("Unauthorized: Anonymous users cannot perform this action");
     };
-    switch (users.get(caller)) {
-      case (?u) {
-        if (u.email == "graph.dust@gmail.com") {
-          ensureRootAdminUser(caller);
-          return;
-        };
-      };
-      case (null) {};
+    // MasterAdmin is always allowed; ensure their record is consistent.
+    if (isMasterAdmin(caller)) {
+      ensureRootAdminUser(caller);
+      return;
     };
     if (not AccessControl.hasPermission(accessControlState, caller, #admin) and not UserApproval.isApproved(approvalState, caller)) {
       Runtime.trap("Unauthorized: Your account is pending approval");
@@ -236,53 +240,69 @@ import UserApproval "user-approval/approval";
   };
 
   // ---------------------------------------------------------------------------
-  // Role helpers
+  // Role-check helpers
   // ---------------------------------------------------------------------------
 
-  func isElevatedRole(role : Role) : Bool {
-    switch (role) {
-      case (#president) { true };
-      case (#vicePresident) { true };
-      case (#secretaryTreasurer) { true };
-      case (#lt) { true };
-      case (#mc) { false };
-      case (#elt) { false };
-      case (#member) { false };
-      case (#rootAdmin) { true };
+  /// Returns true if the caller is the MasterAdmin.
+  /// Use this for operations that ONLY MasterAdmin may perform:
+  ///   - approving users
+  ///   - assigning President/VP/ST roles
+  ///   - creating/activating/modifying tenures
+  ///   - triggering Start New Tenure
+  func requireMasterAdmin(caller : Principal) {
+    if (not isMasterAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only MasterAdmin can perform this action");
     };
   };
 
-  // Returns the application-level Role for a principal, or null if no record.
-  func getAppRole(caller : Principal) : ?Role {
-    switch (users.get(caller)) {
-      case (null) { null };
-      case (?u) { ?u.role };
-    };
-  };
-
-  // True for Root Admin, President, VP, ST (the "senior leadership" tier).
-  func isSeniorLeadership(caller : Principal) : Bool {
+  /// Returns true if the caller is Executive Core (President, VP, ST) OR MasterAdmin.
+  /// Use this for operations that Executive Core + MasterAdmin may perform:
+  ///   - create/publish announcements directly
+  ///   - approve pending announcements/events
+  ///   - create/publish events directly
+  ///   - mark isPaid=true
+  ///   - pin/unpin content
+  ///   - edit Meeting records
+  ///   - create/delete roles
+  ///   - delete any content
+  func isExecutiveCoreOrMasterAdmin(caller : Principal) : Bool {
+    if (isMasterAdmin(caller)) { return true };
     switch (getAppRole(caller)) {
       case (null) { false };
       case (?role) {
         switch (role) {
-          case (#rootAdmin) { true };
           case (#president) { true };
           case (#vicePresident) { true };
           case (#secretaryTreasurer) { true };
+          case (#rootAdmin) { true };
           case (_) { false };
         };
       };
     };
   };
 
-  func isLTOrAdmin(caller : Principal) : Bool {
+  /// Returns true if the caller is LT or above (Executive Core + MasterAdmin + LT).
+  /// Used for reading pending posts, accessing leadership group, etc.
+  func isLTOrAbove(caller : Principal) : Bool {
+    if (isMasterAdmin(caller)) { return true };
     if (AccessControl.hasPermission(accessControlState, caller, #admin)) {
-      // AccessControl #admin covers rootAdmin, president, VP, ST, LT
-      // But we must also verify via app role to avoid false positives
-      // from stale AccessControl state. We trust AccessControl here as
-      // it is always kept in sync.
-      return true;
+      // Check if they have an app-level role that qualifies
+      switch (getAppRole(caller)) {
+        case (null) {
+          // AccessControl admin without app role — only MasterAdmin should have this
+          return isMasterAdmin(caller);
+        };
+        case (?role) {
+          switch (role) {
+            case (#president) { return true };
+            case (#vicePresident) { return true };
+            case (#secretaryTreasurer) { return true };
+            case (#lt) { return true };
+            case (#rootAdmin) { return true };
+            case (_) { return false };
+          };
+        };
+      };
     };
     switch (getAppRole(caller)) {
       case (null) { false };
@@ -299,6 +319,26 @@ import UserApproval "user-approval/approval";
     };
   };
 
+  func getAppRole(caller : Principal) : ?Role {
+    switch (users.get(caller)) {
+      case (null) { null };
+      case (?u) { ?u.role };
+    };
+  };
+
+  func isElevatedRole(role : Role) : Bool {
+    switch (role) {
+      case (#president) { true };
+      case (#vicePresident) { true };
+      case (#secretaryTreasurer) { true };
+      case (#lt) { true };
+      case (#mc) { false };
+      case (#elt) { false };
+      case (#member) { false };
+      case (#rootAdmin) { true };
+    };
+  };
+
   func isMCOrELT(caller : Principal) : Bool {
     switch (getAppRole(caller)) {
       case (null) { false };
@@ -312,42 +352,23 @@ import UserApproval "user-approval/approval";
     };
   };
 
-  // True if the caller's role requires event approval (LT, MC, ELT, member).
-  func requiresEventApproval(caller : Principal) : Bool {
-    switch (getAppRole(caller)) {
-      case (null) { true };
-      case (?role) {
-        switch (role) {
-          case (#rootAdmin) { false };
-          case (#president) { false };
-          case (#vicePresident) { false };
-          case (#secretaryTreasurer) { false };
-          case (_) { true };
-        };
-      };
-    };
-  };
-
-  // True if the caller can approve events (Root Admin, President, VP, ST).
-  func canApproveEvents(caller : Principal) : Bool {
-    isSeniorLeadership(caller);
-  };
-
-  // True if the caller can toggle isPaid (Root Admin, President, VP, ST).
-  func canTogglePaid(caller : Principal) : Bool {
-    isSeniorLeadership(caller);
+  /// Posts/events by non-executive-core members require approval.
+  func requiresApproval(caller : Principal) : Bool {
+    not isExecutiveCoreOrMasterAdmin(caller);
   };
 
   func canAccessPrivateGroup(caller : Principal, category : PostCategory) : Bool {
+    // MasterAdmin can access all groups.
+    if (isMasterAdmin(caller)) { return true };
     if (AccessControl.hasPermission(accessControlState, caller, #admin)) {
       return true;
     };
     switch (getAppRole(caller)) {
       case (null) { false };
-      case (?role) {
+      case (?roleName) {
         switch (category) {
           case (#leadershipTeam) {
-            switch (role) {
+            switch (roleName) {
               case (#president) { true };
               case (#vicePresident) { true };
               case (#secretaryTreasurer) { true };
@@ -357,7 +378,7 @@ import UserApproval "user-approval/approval";
             };
           };
           case (#membershipCommittee) {
-            switch (role) {
+            switch (roleName) {
               case (#president) { true };
               case (#vicePresident) { true };
               case (#secretaryTreasurer) { true };
@@ -368,7 +389,7 @@ import UserApproval "user-approval/approval";
             };
           };
           case (#coreTeam) {
-            switch (role) {
+            switch (roleName) {
               case (#president) { true };
               case (#vicePresident) { true };
               case (#secretaryTreasurer) { true };
@@ -463,19 +484,21 @@ import UserApproval "user-approval/approval";
     isApprovedOrAdmin(caller);
   };
 
-  // This always returns non-null, #rootAdmin profile for the root admin principal.
-  // Never returns pending or non-admin profile for graph.dust@gmail.com
+  /// Returns the caller's full profile. MasterAdmin enforcement is applied here.
   public shared ({ caller }) func getCallerUserProfile() : async ?User {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
-      Runtime.trap("Unauthorized: Only authenticated users can get their profile");
+      // MasterAdmin may not have #user role yet — allow them through.
+      if (not isMasterAdmin(caller)) {
+        Runtime.trap("Unauthorized: Only authenticated users can get their profile");
+      };
     };
 
-    // Special handling for root admin
     switch (users.get(caller)) {
       case (null) {
-        // If this is the root admin, ensure and return the profile
-        if (UserApproval.isApproved(approvalState, caller)) {
-          let rootProfile = {
+        // Bootstrap: if this is the MasterAdmin (identified via AccessControl
+        // admin flag set in a prior session), create their record.
+        if (isMasterAdmin(caller)) {
+          let rootProfile : User = {
             name = "Root Admin";
             email = "graph.dust@gmail.com";
             role = #rootAdmin;
@@ -486,21 +509,16 @@ import UserApproval "user-approval/approval";
           AccessControl.assignRole(accessControlState, caller, caller, #admin);
           return ?rootProfile;
         };
-        return null; // Not root admin, not found
+        return null;
       };
       case (?u) {
-        // If this is the root admin but not approved, upgrade to approved
         if (u.email == "graph.dust@gmail.com") {
-          if (UserApproval.isApproved(approvalState, caller)) {
-            // Only migrate to #rootAdmin if approved
-            if (u.role != #rootAdmin or not u.isApproved) {
-              let updated = { u with role = #rootAdmin; isApproved = true };
-              users.add(caller, updated);
-              AccessControl.assignRole(accessControlState, caller, caller, #admin);
-              return ?updated;
-            };
-          } else {
-            return null; // Not approved (pending or rejected)
+          // Always return a fully-approved rootAdmin profile for this email.
+          if (u.role != #rootAdmin or not u.isApproved) {
+            let updated : User = { u with role = #rootAdmin; isApproved = true };
+            users.add(caller, updated);
+            AccessControl.assignRole(accessControlState, caller, caller, #admin);
+            return ?updated;
           };
         };
         ?u;
@@ -510,10 +528,14 @@ import UserApproval "user-approval/approval";
 
   public shared ({ caller }) func saveCallerUserProfile(profile : User) : async () {
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
-      Runtime.trap("Unauthorized: Only authenticated users can save their profile");
+      // MasterAdmin may not have #user role yet — allow them through.
+      if (not isMasterAdmin(caller)) {
+        Runtime.trap("Unauthorized: Only authenticated users can save their profile");
+      };
     };
 
     if (profile.email == "graph.dust@gmail.com") {
+      // MasterAdmin profile: always force rootAdmin role and approved status.
       let user : User = {
         name = profile.name;
         email = profile.email;
@@ -526,6 +548,7 @@ import UserApproval "user-approval/approval";
       return;
     };
 
+    // Prevent non-MasterAdmin callers from escalating their own role or approval.
     let existingRole : Role = switch (users.get(caller)) {
       case (null) { #member };
       case (?u) { u.role };
@@ -545,7 +568,8 @@ import UserApproval "user-approval/approval";
   };
 
   public query ({ caller }) func getUserProfile(user : Principal) : async ?User {
-    if (caller != user and not AccessControl.isAdmin(accessControlState, caller)) {
+    // Users can view their own profile; admins can view any profile.
+    if (caller != user and not isExecutiveCoreOrMasterAdmin(caller)) {
       Runtime.trap("Unauthorized: Can only view your own profile");
     };
     switch (users.get(user)) {
@@ -594,7 +618,7 @@ import UserApproval "user-approval/approval";
   };
 
   // ---------------------------------------------------------------------------
-  // Public: tenure
+  // Public: tenure — MasterAdmin only
   // ---------------------------------------------------------------------------
 
   public shared ({ caller }) func startNewTenure(
@@ -604,11 +628,10 @@ import UserApproval "user-approval/approval";
     startDate : Time.Time,
     endDate : Time.Time,
   ) : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
-      Runtime.trap("Unauthorized: Only admins can perform this action");
-    };
+    // Only MasterAdmin can create/activate/modify tenures.
+    requireMasterAdmin(caller);
 
-    // Downgrade all non-root-admin users to member
+    // Downgrade all non-MasterAdmin users to member.
     for ((principal, user) in users.entries()) {
       if (user.email != "graph.dust@gmail.com") {
         let updatedUser = { user with role = #member };
@@ -630,6 +653,7 @@ import UserApproval "user-approval/approval";
 
     tenures.add(newTenure);
 
+    // Assign executive core roles — only MasterAdmin may do this.
     AccessControl.assignRole(accessControlState, caller, president, #admin);
     AccessControl.assignRole(accessControlState, caller, vicePresident, #admin);
     AccessControl.assignRole(accessControlState, caller, secretaryTreasurer, #admin);
@@ -646,6 +670,11 @@ import UserApproval "user-approval/approval";
             #secretaryTreasurer;
           };
           users.add(officialPrincipal, { u with role = newRole });
+          addNotification(
+            officialPrincipal,
+            "Your role has been updated to: " # roleToText(newRole),
+            #roleAssigned,
+          );
         };
       };
     };
@@ -663,18 +692,35 @@ import UserApproval "user-approval/approval";
   // Public: role assignment
   // ---------------------------------------------------------------------------
 
+  /// Assign a role to a user.
+  /// Rules:
+  ///   - Only MasterAdmin can assign President, VP, SecretaryTreasurer.
+  ///   - Executive Core + MasterAdmin can assign other roles (LT, MC, ELT, Member).
+  ///   - No one can change the MasterAdmin's role.
   public shared ({ caller }) func assignRole(user : Principal, role : Role) : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
-      Runtime.trap("Unauthorized: Only admins can assign roles");
-    };
+    requireApprovedUser(caller);
 
+    // No one can change the MasterAdmin's role.
     let userData = switch (users.get(user)) {
       case (null) { Runtime.trap("User does not exist") };
       case (?data) { data };
     };
 
     if (userData.email == "graph.dust@gmail.com") {
-      Runtime.trap("Unauthorized: Cannot change the role of the root admin");
+      Runtime.trap("Unauthorized: Cannot change the role of the MasterAdmin");
+    };
+
+    // Only MasterAdmin can assign executive core roles.
+    switch (role) {
+      case (#president or #vicePresident or #secretaryTreasurer or #rootAdmin) {
+        requireMasterAdmin(caller);
+      };
+      case (_) {
+        // Executive Core + MasterAdmin can assign other roles.
+        if (not isExecutiveCoreOrMasterAdmin(caller)) {
+          Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can assign roles");
+        };
+      };
     };
 
     let updatedUser = { userData with role };
@@ -702,12 +748,15 @@ import UserApproval "user-approval/approval";
       case (?u) { u };
     };
 
-    let callerIsLTOrAdmin = isLTOrAdmin(caller);
+    let callerIsExecOrAdmin = isExecutiveCoreOrMasterAdmin(caller);
+    let callerIsLTOrAbove = isLTOrAbove(caller);
     let callerIsMCOrELT = isMCOrELT(caller);
 
     switch (category) {
       case (#announcements) {
-        if (not callerIsLTOrAdmin and not callerIsMCOrELT) {
+        // Only LT and above, MC, ELT can post announcements.
+        // Regular members cannot post announcements at all.
+        if (not callerIsLTOrAbove and not callerIsMCOrELT) {
           Runtime.trap("Unauthorized: Members cannot post announcements");
         };
       };
@@ -733,9 +782,11 @@ import UserApproval "user-approval/approval";
 
     let isPrivateGroup = isPrivateGroupCategory(category);
 
+    // Executive Core + MasterAdmin publish announcements directly;
+    // all others submit as pending.
     let status : PostStatus = switch (category) {
       case (#announcements) {
-        if (callerIsLTOrAdmin) { #published } else { #pending };
+        if (callerIsExecOrAdmin) { #published } else { #pending };
       };
       case (_) { #published };
     };
@@ -761,9 +812,12 @@ import UserApproval "user-approval/approval";
     posts.add(posts.size(), post);
   };
 
+  /// Approve a pending post. Only Executive Core + MasterAdmin may approve.
   public shared ({ caller }) func approvePost(postId : Nat) : async () {
-    if (not isLTOrAdmin(caller)) {
-      Runtime.trap("Unauthorized: Only LT or admins can approve posts");
+    requireApprovedUser(caller);
+
+    if (not isExecutiveCoreOrMasterAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can approve posts");
     };
 
     let post = switch (posts.get(postId)) {
@@ -785,14 +839,20 @@ import UserApproval "user-approval/approval";
     };
   };
 
+  /// Delete a post.
+  /// Rules:
+  ///   - Executive Core + MasterAdmin can delete any post.
+  ///   - Regular users can only delete their own posts.
   public shared ({ caller }) func deletePost(postId : Nat) : async () {
+    requireApprovedUser(caller);
+
     let post = switch (posts.get(postId)) {
       case (null) { Runtime.trap("Post does not exist") };
       case (?p) { p };
     };
 
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin) and post.author != caller) {
-      Runtime.trap("Unauthorized: Only admins or the post author can delete posts");
+    if (not isExecutiveCoreOrMasterAdmin(caller) and post.author != caller) {
+      Runtime.trap("Unauthorized: Only Executive Core, MasterAdmin, or the post author can delete posts");
     };
 
     posts.remove(postId);
@@ -852,12 +912,47 @@ import UserApproval "user-approval/approval";
     comments.add(postId, existingComments);
   };
 
+  /// Delete a comment.
+  /// Rules:
+  ///   - Executive Core + MasterAdmin can delete any comment.
+  ///   - Regular users can only delete their own comments.
+  public shared ({ caller }) func deleteComment(postId : Nat, commentIndex : Nat) : async () {
+    requireApprovedUser(caller);
+
+    let commentList = switch (comments.get(postId)) {
+      case (null) { Runtime.trap("No comments for this post") };
+      case (?c) { c };
+    };
+
+    let commentsArr = commentList.toArray();
+    if (commentIndex >= commentsArr.size()) {
+      Runtime.trap("Comment index out of bounds");
+    };
+
+    let comment = commentsArr[commentIndex];
+
+    if (not isExecutiveCoreOrMasterAdmin(caller) and comment.author != caller) {
+      Runtime.trap("Unauthorized: Only Executive Core, MasterAdmin, or the comment author can delete comments");
+    };
+
+    let newList = List.empty<Comment>();
+    var idx = 0;
+    for (c in commentsArr.values()) {
+      if (idx != commentIndex) {
+        newList.add(c);
+      };
+      idx += 1;
+    };
+    comments.add(postId, newList);
+  };
+
   public query ({ caller }) func getPosts(categoryFilter : ?PostCategory) : async [PostView] {
     if (not isApprovedOrAdmin(caller)) {
       Runtime.trap("Unauthorized: Your account is pending approval");
     };
 
-    let callerIsLTOrAdmin = isLTOrAdmin(caller);
+    let callerIsExecOrAdmin = isExecutiveCoreOrMasterAdmin(caller);
+    let callerIsLTOrAbove = isLTOrAbove(caller);
 
     let filteredPosts = switch (categoryFilter) {
       case (?category) {
@@ -867,7 +962,7 @@ import UserApproval "user-approval/approval";
         filterAndMapPosts(
           func(p : Post) : Bool {
             p.category == category and (
-              p.status == #published or callerIsLTOrAdmin
+              p.status == #published or callerIsLTOrAbove
             );
           },
         );
@@ -880,7 +975,7 @@ import UserApproval "user-approval/approval";
             } else {
               true;
             };
-            let canSeePending = p.status == #published or callerIsLTOrAdmin;
+            let canSeePending = p.status == #published or callerIsLTOrAbove;
             canSeeGroup and canSeePending;
           },
         );
@@ -888,6 +983,18 @@ import UserApproval "user-approval/approval";
     };
 
     sortPostsByTime(filteredPosts);
+  };
+
+  /// Get pending posts. Only Executive Core + MasterAdmin may view pending posts.
+  public query ({ caller }) func getPendingPosts() : async [PostView] {
+    requireApprovedUserQuery(caller);
+
+    if (not isExecutiveCoreOrMasterAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can view pending posts");
+    };
+
+    let pendingPosts = filterAndMapPosts(func(p : Post) : Bool { p.status == #pending });
+    sortPostsByTime(pendingPosts);
   };
 
   public query ({ caller }) func getMyPosts() : async [PostView] {
@@ -898,10 +1005,10 @@ import UserApproval "user-approval/approval";
 
   public query ({ caller }) func searchPostsByMember(memberName : Text) : async [PostView] {
     requireApprovedUserQuery(caller);
-    let callerIsLTOrAdmin = isLTOrAdmin(caller);
+    let callerIsLTOrAbove = isLTOrAbove(caller);
     let matchingPosts = filterAndMapPosts(
       func(p : Post) : Bool {
-        p.authorName.contains(#text memberName) and (p.status == #published or callerIsLTOrAdmin) and (not p.isPrivateGroup or canAccessPrivateGroup(caller, p.category));
+        p.authorName.contains(#text memberName) and (p.status == #published or callerIsLTOrAbove) and (not p.isPrivateGroup or canAccessPrivateGroup(caller, p.category));
       },
     );
     sortPostsByTime(matchingPosts);
@@ -929,6 +1036,8 @@ import UserApproval "user-approval/approval";
   // Public: events
   // ---------------------------------------------------------------------------
 
+  /// Create an event.
+  /// Executive Core + MasterAdmin publish directly; others submit as pending.
   public shared ({ caller }) func createEvent(
     title : Text,
     description : Text,
@@ -938,13 +1047,12 @@ import UserApproval "user-approval/approval";
   ) : async () {
     requireApprovedUser(caller);
 
-    if (not isLTOrAdmin(caller) and not isMCOrELT(caller)) {
+    // Only LT and above, MC, ELT can create events.
+    if (not isLTOrAbove(caller) and not isMCOrELT(caller)) {
       Runtime.trap("Unauthorized: Only LT, MC, ELT, or admins can create events");
     };
 
-    // Senior leadership (rootAdmin, president, VP, ST) events are auto-approved.
-    // All other roles (LT, MC, ELT) require approval.
-    let eventStatus : EventStatus = if (requiresEventApproval(caller)) {
+    let eventStatus : EventStatus = if (requiresApproval(caller)) {
       #pending;
     } else {
       #approved;
@@ -963,7 +1071,6 @@ import UserApproval "user-approval/approval";
 
     events.add(events.size(), event);
 
-    // Notify all members about the new event creation (regardless of approval status).
     for (member in users.keys().toArray().values()) {
       addNotification(
         member,
@@ -972,10 +1079,9 @@ import UserApproval "user-approval/approval";
       );
     };
 
-    // If the event is pending, notify senior leadership so they can approve it.
     if (eventStatus == #pending) {
       for ((principal, user) in users.entries()) {
-        if (isSeniorLeadership(principal)) {
+        if (isExecutiveCoreOrMasterAdmin(principal)) {
           addNotification(
             principal,
             "A new event requires your approval: " # title,
@@ -986,12 +1092,12 @@ import UserApproval "user-approval/approval";
     };
   };
 
-  /// Approve a pending event. Only Root Admin, President, VP, and ST may call this.
+  /// Approve a pending event. Only Executive Core + MasterAdmin may approve.
   public shared ({ caller }) func approveEvent(eventId : Nat) : async () {
     requireApprovedUser(caller);
 
-    if (not canApproveEvents(caller)) {
-      Runtime.trap("Unauthorized: Only Root Admin, President, Vice President, or Secretary Treasurer can approve events");
+    if (not isExecutiveCoreOrMasterAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can approve events");
     };
 
     let event = switch (events.get(eventId)) {
@@ -1006,14 +1112,12 @@ import UserApproval "user-approval/approval";
     let updatedEvent = { event with status = #approved };
     events.add(eventId, updatedEvent);
 
-    // Notify the event creator that their event was approved.
     addNotification(
       event.creator,
       "Your event has been approved: " # event.title,
       #eventCreated,
     );
 
-    // Notify all members about the newly approved event.
     for (member in users.keys().toArray().values()) {
       if (member != event.creator) {
         addNotification(
@@ -1025,18 +1129,29 @@ import UserApproval "user-approval/approval";
     };
   };
 
-  /// Returns only approved events to regular users.
-  /// Senior leadership (rootAdmin, president, VP, ST) can also see pending events.
+  /// Get events. Regular members see only approved events.
+  /// Executive Core + MasterAdmin see all (including pending).
   public query ({ caller }) func getEvents() : async [Event] {
     requireApprovedUserQuery(caller);
 
-    let callerCanSeePending = canApproveEvents(caller);
+    let callerCanSeePending = isExecutiveCoreOrMasterAdmin(caller);
 
     events.values().toArray().filter(
       func(e : Event) : Bool {
         e.status == #approved or callerCanSeePending;
       }
     );
+  };
+
+  /// Get pending events. Only Executive Core + MasterAdmin.
+  public query ({ caller }) func getPendingEvents() : async [Event] {
+    requireApprovedUserQuery(caller);
+
+    if (not isExecutiveCoreOrMasterAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can view pending events");
+    };
+
+    events.values().toArray().filter(func(e : Event) : Bool { e.status == #pending });
   };
 
   public shared ({ caller }) func registerForEvent(eventId : Nat) : async () {
@@ -1047,7 +1162,6 @@ import UserApproval "user-approval/approval";
       case (?e) { e };
     };
 
-    // Only allow registration for approved events.
     if (event.status != #approved) {
       Runtime.trap("Cannot register for an event that has not been approved yet");
     };
@@ -1062,13 +1176,12 @@ import UserApproval "user-approval/approval";
     eventRegistrations.add((eventId, caller), registration);
   };
 
-  /// Toggle the isPaid flag on an event registration.
-  /// Only Root Admin, President, Vice President, and Secretary Treasurer may call this.
+  /// Mark payment status. Only Executive Core + MasterAdmin.
   public shared ({ caller }) func togglePaid(eventId : Nat, user : Principal) : async () {
     requireApprovedUser(caller);
 
-    if (not canTogglePaid(caller)) {
-      Runtime.trap("Unauthorized: Only Root Admin, President, Vice President, or Secretary Treasurer can update payment status");
+    if (not isExecutiveCoreOrMasterAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can update payment status");
     };
 
     let reg = switch (eventRegistrations.get((eventId, user))) {
@@ -1079,17 +1192,24 @@ import UserApproval "user-approval/approval";
     eventRegistrations.add((eventId, user), { reg with isPaid = not reg.isPaid });
   };
 
-  /// Get registrations for an event.
-  /// Only senior leadership can view the full registration list with payment status.
+  /// Get event registrations. Only Executive Core + MasterAdmin.
   public query ({ caller }) func getEventRegistrations(eventId : Nat) : async [Registration] {
     requireApprovedUserQuery(caller);
 
-    if (not canTogglePaid(caller)) {
-      Runtime.trap("Unauthorized: Only Root Admin, President, Vice President, or Secretary Treasurer can view registration payment details");
+    if (not isExecutiveCoreOrMasterAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can view registration payment details");
     };
 
     eventRegistrations.values().toArray().filter(
       func(r : Registration) : Bool { r.eventId == eventId }
+    );
+  };
+
+  public query ({ caller }) func getMyRegistrations() : async [Registration] {
+    requireApprovedUserQuery(caller);
+
+    eventRegistrations.values().toArray().filter(
+      func(r : Registration) : Bool { r.user == caller }
     );
   };
 
@@ -1123,7 +1243,7 @@ import UserApproval "user-approval/approval";
   };
 
   // ---------------------------------------------------------------------------
-  // Public: approval workflow
+  // Public: approval workflow — MasterAdmin only
   // ---------------------------------------------------------------------------
 
   public shared ({ caller }) func requestApproval() : async () {
@@ -1133,10 +1253,10 @@ import UserApproval "user-approval/approval";
     UserApproval.requestApproval(approvalState, caller);
   };
 
+  /// Approve or reject a user. Only MasterAdmin may approve users.
   public shared ({ caller }) func setApproval(user : Principal, status : UserApproval.ApprovalStatus) : async () {
-    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
-      Runtime.trap("Unauthorized: Only admins can approve users");
-    };
+    requireMasterAdmin(caller);
+
     UserApproval.setApproval(approvalState, user, status);
 
     switch (users.get(user)) {
@@ -1164,11 +1284,30 @@ import UserApproval "user-approval/approval";
     };
   };
 
+  /// List pending approvals. Only MasterAdmin may view.
   public query ({ caller }) func listApprovals() : async [UserApproval.UserApprovalInfo] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #admin))) {
-      Runtime.trap("Unauthorized: Only admins can perform this action");
-    };
+    requireMasterAdmin(caller);
     UserApproval.listApprovals(approvalState);
+  };
+
+  /// Get all users. Only Executive Core + MasterAdmin.
+  public query ({ caller }) func getAllUsers() : async [(Principal, User)] {
+    requireApprovedUserQuery(caller);
+
+    if (not isExecutiveCoreOrMasterAdmin(caller)) {
+      Runtime.trap("Unauthorized: Only Executive Core or MasterAdmin can view all users");
+    };
+
+    users.entries().toArray();
+  };
+
+  /// Get pending (unapproved) users. Only MasterAdmin.
+  public query ({ caller }) func getPendingUsers() : async [(Principal, User)] {
+    requireMasterAdmin(caller);
+
+    users.entries().toArray().filter(
+      func((_, u) : (Principal, User)) : Bool { not u.isApproved }
+    );
   };
 
   // ---------------------------------------------------------------------------
@@ -1179,7 +1318,7 @@ import UserApproval "user-approval/approval";
     if (caller.isAnonymous()) {
       Runtime.trap("Unauthorized: Anonymous users cannot upload profile pictures");
     };
-    if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
+    if (not AccessControl.hasPermission(accessControlState, caller, #user) and not isMasterAdmin(caller)) {
       Runtime.trap("Unauthorized: Only authenticated users can upload profile pictures");
     };
     switch (users.get(caller)) {

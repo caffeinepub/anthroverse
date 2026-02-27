@@ -2,10 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-in-app-tsx-audit-the-root-admin-bypass-code-path-specifically-for-the-email-graph-dust-gmail-com-the-blank-page-occurs-only-for-this-account-while-other-accounts-render-correctly-indicating-the-root-admin-conditional-branch-either-throws-an-unhandled-error-enters-an-infinite-loading-state-or-renders-null-undefined-trace-the-execution-path-after-the-root-admin-email-check-ensure-the-user-profile-query-result-is-confirmed-non-null-before-any-property-access-that-the-root-admin-branch-does-not-depend-on-isapproved-being-true-before-proceeding-and-that-no-missing-or-undefined-variable-causes-a-silent-crash-add-console-logging-or-guard-clauses-to-ensure-this-path-always-resolves-to-rendering-the-main-app-layout",
-      "featureTitle": "In App.tsx, audit the Root Admin bypass code path specifically for the email 'graph.dust@gmail.com'. The blank page occurs only for this account while other accounts render correctly, indicating the root admin conditional branch either throws an unhandled error, enters an infinite loading state, or renders null/undefined. Trace the execution path after the root admin email check: ensure the user profile query result is confirmed non-null before any property access, that the root admin branch does not depend on isApproved being true before proceeding, and that no missing or undefined variable causes a silent crash. Add console logging or guard clauses to ensure this path always resolves to rendering the main app layout.",
+      "featureId": "feature-build-the-complete-react-frontend-for-anthroverse-with-the-following-page-route-structure-1-auth-flow-login-page-profile-setup-page-waiting-for-approval-page-2-main-app-approved-users-only-home-feed-chapter-meeting-tab-events-profile-admin-gated-use-bottom-navigation-bar-on-mobile-sidebar-on-desktop-all-routing-and-access-control-must-reflect-backend-returned-role-data",
+      "featureTitle": "Build the complete React frontend for AnthroVerse with the following page/route structure: (1) Auth flow: Login page → Profile Setup page → Waiting for Approval page; (2) Main app (approved users only): Home/Feed, Chapter Meeting tab, Events, Profile, Admin (gated). Use bottom navigation bar on mobile, sidebar on desktop. All routing and access control must reflect backend-returned role data.",
       "files": [
-        "frontend/src/App.tsx"
+        "frontend/src/App.tsx",
+        "frontend/src/components/layout/MainLayout.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -18,15 +19,16 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-30"
+        "REQ-11"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-in-app-tsx-ensure-that-the-root-admin-bypass-check-for-graph-dust-gmail-com-is-structurally-isolated-from-the-isapproved-gate-and-the-profile-null-guard-specifically-1-evaluate-the-email-check-against-the-identity-profile-only-after-the-profile-query-has-settled-not-during-loading-2-if-the-profile-query-returns-null-undefined-for-the-root-admin-synthesize-a-minimal-fallback-user-object-with-role-rootadmin-and-isapproved-true-so-the-render-path-is-never-blocked-3-never-allow-the-root-admin-code-path-to-fall-through-to-the-waitingforapproval-or-profilesetup-branches",
-      "featureTitle": "In App.tsx, ensure that the root admin bypass check for 'graph.dust@gmail.com' is structurally isolated from the isApproved gate and the profile-null guard. Specifically: (1) evaluate the email check against the identity/profile only after the profile query has settled (not during loading), (2) if the profile query returns null/undefined for the root admin, synthesize a minimal fallback user object with role = #rootAdmin and isApproved = true so the render path is never blocked, (3) never allow the root admin code path to fall through to the WaitingForApproval or ProfileSetup branches.",
+      "featureId": "feature-implement-the-home-feed-page-with-1-pinned-content-section-at-the-top-displays-the-single-pinned-item-announcement-event-or-meeting-with-a-gold-c9a227-accent-card-and-a-pin-icon-pin-unpin-button-visible-only-to-executive-core-masteradmin-2-category-filter-tabs-announcements-general-fun-requirements-3-post-creation-form-with-text-input-category-selector-image-video-gif-attach-buttons-emoji-picker-button-and-poll-creator-4-post-cards-showing-author-avatar-name-role-badge-timestamp-content-media-poll-if-any-emoji-reaction-bar-comment-count-reshare-save-share-buttons-5-comment-threads-under-each-post-with-same-rich-input-options",
+      "featureTitle": "Implement the Home/Feed page with: (1) Pinned Content section at the top — displays the single pinned item (announcement, event, or meeting) with a gold (#C9A227) accent card and a pin icon; pin/unpin button visible only to Executive Core + MasterAdmin; (2) Category filter tabs: Announcements, General, Fun, Requirements; (3) Post creation form with text input, category selector, image/video/GIF attach buttons, emoji picker button, and poll creator; (4) Post cards showing author avatar, name, role badge, timestamp, content, media, poll (if any), emoji reaction bar, comment count, reshare, save, share buttons; (5) Comment threads under each post with same rich input options.",
       "files": [
-        "frontend/src/App.tsx"
+        "frontend/src/components/feed/PostCard.tsx",
+        "frontend/src/pages/FeedPage.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -39,7 +41,144 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-31"
+        "REQ-12"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-the-chapter-meeting-tab-page-displaying-all-meeting-fields-date-time-venue-stimulant-theme-speaker-dress-code-notes-show-an-edit-meeting-form-all-fields-editable-for-executive-core-masteradmin-only-include-a-pin-this-meeting-button-for-executive-core-masteradmin-display-a-styled-meeting-card-with-all-fields-prominently",
+      "featureTitle": "Implement the Chapter Meeting tab page displaying all meeting fields (date, time, venue, stimulant, theme, speaker, dress code, notes). Show an 'Edit Meeting' form (all fields editable) for Executive Core + MasterAdmin only. Include a 'Pin This Meeting' button for Executive Core + MasterAdmin. Display a styled meeting card with all fields prominently.",
+      "files": [
+        "frontend/src/components/layout/MainLayout.tsx",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/ChapterMeetingPage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-13"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-the-events-page-with-1-grid-of-approved-event-cards-showing-banner-image-title-date-time-venue-2-register-button-per-event-calls-registerforevent-3-create-event-form-executive-core-masteradmin-publishes-directly-others-submits-as-pending-with-fields-title-description-date-time-venue-banner-image-upload-4-pending-events-approval-list-visible-to-executive-core-masteradmin-with-approve-reject-actions-5-registration-list-per-event-showing-ispaid-status-with-a-mark-paid-button-for-executive-core-masteradmin",
+      "featureTitle": "Implement the Events page with: (1) Grid of approved event cards showing banner image, title, date, time, venue; (2) Register button per event (calls registerForEvent); (3) Create Event form (Executive Core + MasterAdmin: publishes directly; others: submits as pending) with fields title, description, date, time, venue, banner image upload; (4) Pending events approval list visible to Executive Core + MasterAdmin with approve/reject actions; (5) Registration list per event showing isPaid status with a 'Mark Paid' button for Executive Core + MasterAdmin.",
+      "files": [
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/EventsPage.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-14"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-the-profile-page-displaying-profile-photo-editable-full-name-editable-email-editable-all-assigned-roles-as-styled-badges-my-posts-tab-list-of-user-s-own-posts-my-events-tab-events-the-user-registered-for-with-ispaid-status-saved-posts-tab-and-a-logout-button-no-dark-mode-toggle-profile-photo-upload-stored-as-base64-or-blob-url",
+      "featureTitle": "Implement the Profile page displaying: profile photo (editable), full name (editable), email (editable), all assigned roles as styled badges, My Posts tab (list of user's own posts), My Events tab (events the user registered for with isPaid status), Saved Posts tab, and a Logout button. No dark mode toggle. Profile photo upload stored as base64 or blob URL.",
+      "files": [
+        "frontend/src/components/RoleBadge.tsx",
+        "frontend/src/hooks/useQueries.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-15"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-the-admin-page-accessible-only-to-executive-core-masteradmin-with-the-following-sections-1-pending-user-approvals-list-with-approve-button-masteradmin-only-2-role-management-create-new-role-name-type-main-sub-delete-role-view-all-roles-3-role-assignment-select-user-select-role-s-assign-remove-4-tenure-management-create-tenure-name-startdate-enddate-activate-tenure-start-new-tenure-dialog-that-accepts-new-president-vp-st-principal-selections-5-announcement-approvals-list-pending-announcements-with-approve-action",
+      "featureTitle": "Implement the Admin page accessible only to Executive Core + MasterAdmin with the following sections: (1) Pending User Approvals — list with Approve button (MasterAdmin only); (2) Role Management — create new role (name, type: main|sub), delete role, view all roles; (3) Role Assignment — select user + select role(s) + assign/remove; (4) Tenure Management — create tenure (name, startDate, endDate), activate tenure, 'Start New Tenure' dialog that accepts new President/VP/ST principal selections; (5) Announcement Approvals — list pending announcements with approve action.",
+      "files": [
+        "frontend/src/hooks/useQueries.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-16"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-the-notification-bell-in-the-app-header-showing-unread-count-badge-clicking-opens-a-dropdown-panel-listing-notifications-sorted-newest-first-with-type-icon-message-and-relative-timestamp-unread-notifications-have-a-visual-indicator-dot-opening-the-panel-marks-all-as-read",
+      "featureTitle": "Implement the notification bell in the app header showing unread count badge. Clicking opens a dropdown/panel listing notifications sorted newest-first with type icon, message, and relative timestamp. Unread notifications have a visual indicator dot. Opening the panel marks all as read.",
+      "files": [
+        "frontend/src/components/notifications/NotificationBell.tsx",
+        "frontend/src/components/notifications/NotificationItem.tsx",
+        "frontend/src/components/notifications/NotificationPanel.tsx",
+        "frontend/src/hooks/useQueries.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-17"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-apply-the-anthroverse-design-system-globally-with-no-dark-mode-primary-purple-4c1d95-secondary-7c3aed-accent-teal-00b3a4-gold-c9a227-light-background-f7f7fb-use-poppins-as-the-primary-font-and-inter-as-secondary-all-cards-and-modals-use-12px-border-radius-pinned-content-cards-use-a-gold-border-and-subtle-gold-background-tint-pending-badges-use-amber-color-paid-badges-use-green-role-badges-use-purple-gradient-remove-all-dark-mode-css-variables-and-theme-toggles",
+      "featureTitle": "Apply the AnthroVerse design system globally with no dark mode: Primary Purple #4C1D95, Secondary #7C3AED, Accent Teal #00B3A4, Gold #C9A227, Light Background #F7F7FB. Use Poppins as the primary font and Inter as secondary. All cards and modals use 12px border radius. Pinned content cards use a gold border and subtle gold background tint. Pending badges use amber color. Paid badges use green. Role badges use purple gradient. Remove all dark mode CSS variables and theme toggles.",
+      "files": [
+        "frontend/src/components/RoleBadge.tsx",
+        "frontend/src/components/feed/PostCard.tsx",
+        "frontend/src/index.css",
+        "frontend/src/pages/FeedPage.tsx",
+        "frontend/tailwind.config.js"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "blob-storage@4.0.0",
+        "user-approval@3.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-18"
       ],
       "confidence": "high"
     }

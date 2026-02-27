@@ -1,39 +1,312 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix blank page for Root Admin (graph.dust@gmail.com) after loading screen",
+  "title": "AnthroVerse — Full Platform Rebuild with Complete Feature Set",
   "requirements": [
     {
-      "id": "REQ-30",
-      "summary": "Audit and fix the Root Admin bypass code path in App.tsx to prevent blank page rendering for graph.dust@gmail.com",
+      "id": "REQ-11",
+      "summary": "Build the complete React frontend with phase-based routing including auth flow (Login → Profile Setup → Waiting for Approval) and main app pages (Home/Feed, Chapter Meeting, Events, Profile, Admin) with role-based access control",
       "acceptanceCriteria": [
-        "Logging in with graph.dust@gmail.com successfully renders the main app layout without a blank page",
-        "The root admin bypass path does not throw any unhandled errors or enter an infinite loading state",
-        "All other accounts continue to work as before",
-        "If the user profile query returns null or undefined for the root admin, the app does not crash — it waits or constructs a fallback profile"
+        "Unapproved users are redirected to the waiting approval page",
+        "Bottom navigation is present on mobile viewports",
+        "Admin link is only visible to Executive Core + MasterAdmin"
       ],
       "file_operations": [
         {
           "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Fix the root admin bypass logic for graph.dust@gmail.com: (1) Move the root admin email check to only execute after the profile query has completed (profileLoading is false and isFetched is true), not during loading. (2) Add explicit null/undefined guards before accessing userProfile.email to prevent silent crashes. (3) Add console logging to trace the root admin code path execution. (4) Ensure that when userProfile is null for the root admin email, the code waits for the profile query to settle rather than rendering a blank state. (5) Verify that the root admin path resolves to rendering <RouterProvider router={router} /> and never falls through to WaitingForApproval or ProfileSetup branches. (6) Add a guard clause that if identity.getPrincipal().toString() matches a known root admin principal (if available) or if the email check passes, bypass approval gates entirely."
+          "description": "Update the phase-based loading logic to match the requirement phases exactly: initializing → unauthenticated (LoginPage) → loading → profile setup (ProfileSetupPage) → waiting approval (WaitingForApprovalPage) → main router. Ensure the root admin bypass for graph.dust@gmail.com works correctly. Remove any dark mode references."
+        },
+        {
+          "path": "frontend/src/pages/AuthPage.tsx",
+          "operation": "modify",
+          "description": "Update AuthPage to render the LoginForm with the orbital rings background image (frontend/public/assets/generated/auth-bg.dim_1200x800.png) using the AuthLayout wrapper. Ensure the layout applies the purple overlay and frosted glass card styling per REQ-19."
+        },
+        {
+          "path": "frontend/src/pages/WaitingApprovalPage.tsx",
+          "operation": "modify",
+          "description": "Update the waiting approval page to use the AuthLayout wrapper with the orbital rings background. Ensure it displays a clear message, a 'Request Approval' button, and a logout option."
+        },
+        {
+          "path": "frontend/src/pages/ProfileSetupPage.tsx",
+          "operation": "modify",
+          "description": "Update the profile setup page to use the AuthLayout wrapper with the orbital rings background. Ensure it collects name, email, and optional profile picture, and navigates to the main app after successful registration."
+        },
+        {
+          "path": "frontend/src/components/layout/MainLayout.tsx",
+          "operation": "modify",
+          "description": "Update MainLayout to implement responsive navigation with a bottom navigation bar on mobile and a sidebar on desktop. Include navigation links for Home/Feed, Chapter Meeting, Events, Profile, and Admin (gated by role). Ensure the Admin link is visible only to Executive Core + MasterAdmin using the permission utility functions."
+        },
+        {
+          "path": "frontend/src/components/AppSidebar.tsx",
+          "operation": "modify",
+          "description": "Update the AppSidebar to include all navigation links (Home/Feed, Chapter Meeting, Events, Profile) and conditionally show the Admin link based on the user's role. Display user profile info, role badge, and logout button."
+        },
+        {
+          "path": "frontend/src/components/AppHeader.tsx",
+          "operation": "modify",
+          "description": "Update the AppHeader to display the AnthroVerse logo (frontend/public/assets/generated/logo-mark.dim_256x256.png) prominently. Include the notification bell dropdown. Apply the Poppins font for branding text."
         }
       ]
     },
     {
-      "id": "REQ-31",
-      "summary": "Structurally isolate the root admin bypass from approval and profile-null guards in App.tsx",
+      "id": "REQ-12",
+      "summary": "Implement the Home/Feed page with pinned content section (gold accent), category filter tabs, post creation form with rich input options (text, image, video, GIF, poll, emoji), post cards with author info, media, reactions, comments, and all post interactions",
       "acceptanceCriteria": [
-        "graph.dust@gmail.com never sees the WaitingForApproval screen",
-        "graph.dust@gmail.com never sees the ProfileSetup screen unless explicitly navigating there",
-        "If the backend profile query fails or returns null for the root admin, a fallback profile object is used and the main layout renders",
-        "The root admin bypass check only runs after the auth and profile loading phase is complete, not during it"
+        "Pinned content card appears at top with gold border/background accent",
+        "Category tabs filter the feed correctly",
+        "Post creation form shows emoji, image, video, GIF, and poll options",
+        "Reaction bar renders emoji reactions with counts",
+        "Comments section is expandable under each post"
       ],
       "file_operations": [
         {
-          "path": "frontend/src/App.tsx",
+          "path": "frontend/src/pages/FeedPage.tsx",
           "operation": "modify",
-          "description": "Refactor the conditional rendering logic in App.tsx to structurally separate the root admin path: (1) After profileLoading is false and isFetched is true, check if userProfile?.email === 'graph.dust@gmail.com' OR if a hardcoded root admin principal matches the current identity. (2) If the root admin check passes but userProfile is null, synthesize a minimal fallback User object with { name: 'Root Admin', email: 'graph.dust@gmail.com', role: Role.rootAdmin, isApproved: true } and pass it to the router context or store it in local state. (3) Ensure the root admin code path skips both the isApproved check and the userProfile === null check that would trigger ProfileSetup. (4) The render flow should be: if (isRootAdmin) { render main app } else if (!isApproved) { render WaitingForApproval } else if (userProfile === null) { render ProfileSetup } else { render main app }. (5) Add inline comments documenting the root admin bypass logic for future maintainers."
+          "description": "Update FeedPage to fetch and display the pinned content at the top with a gold (#C9A227) border and subtle gold background. Show a pin icon and a pin/unpin button for Executive Core + MasterAdmin only. Below the pinned section, render the category filter tabs (Announcements, General, Fun, Requirements) and the filtered post feed. Include the CreatePostForm toggle button."
+        },
+        {
+          "path": "frontend/src/components/feed/PostCard.tsx",
+          "operation": "modify",
+          "description": "Update PostCard to display author avatar, name, role badge, timestamp, content, media (image/video), poll (if any), emoji reaction bar with counts, comment count, like button, save button, share button, and delete/approve buttons (role-gated). Include an expandable comments section beneath the post card. Ensure the comments section supports the same rich input options as post creation (text, image, emoji)."
+        },
+        {
+          "path": "frontend/src/components/feed/CreatePostForm.tsx",
+          "operation": "modify",
+          "description": "Update CreatePostForm to include a text input, category selector (filtered by user role using the permission utility functions), and buttons for attaching images, videos, GIFs (treat as images), and polls. Add an emoji picker button. Ensure the form uses the blob-storage component's ExternalBlob.fromBytes for image uploads. Verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/components/feed/PostFilters.tsx",
+          "operation": "modify",
+          "description": "Update PostFilters to render category tabs for Announcements, General, Fun, Requirements. Include a 'My Posts' toggle and a search input for filtering posts by member name. Apply active tab styling using the primary purple (#4C1D95) color."
+        },
+        {
+          "path": "frontend/src/components/feed/PendingApprovals.tsx",
+          "operation": "modify",
+          "description": "Update PendingApprovals to display a list of pending posts for admin approval. Show each post in a card with an 'Approve' button that calls the approvePost mutation. Show amber (#F59E0B) badges for pending status. This component should only be visible to Executive Core + MasterAdmin."
+        }
+      ]
+    },
+    {
+      "id": "REQ-13",
+      "summary": "Implement the Chapter Meeting tab page displaying all meeting fields with an edit form for Executive Core + MasterAdmin and a 'Pin This Meeting' button",
+      "acceptanceCriteria": [
+        "Meeting card displays all fields",
+        "Edit form is hidden from regular members",
+        "Pin button calls pinContent with contentType='meeting'"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/ChapterMeetingPage.tsx",
+          "operation": "create",
+          "description": "Create a new page component that fetches and displays the current chapter meeting details (date, time, venue, stimulant, theme, speaker, dress code, notes) in a prominently styled card. Include an 'Edit Meeting' form that is visible only to Executive Core + MasterAdmin. The form should allow editing all meeting fields and call the createOrUpdateMeeting mutation. Add a 'Pin This Meeting' button (visible only to Executive Core + MasterAdmin) that calls the pinContent backend capability with contentType='meeting'."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add query and mutation hooks for chapter meeting operations: useGetMeeting (query), useCreateOrUpdateMeeting (mutation), and usePinContent (mutation). Ensure usePinContent accepts contentType and contentId parameters."
+        },
+        {
+          "path": "frontend/src/components/layout/MainLayout.tsx",
+          "operation": "modify",
+          "description": "Add a 'Chapter Meeting' navigation link that routes to the new ChapterMeetingPage. Ensure the link is visible to all approved users."
+        }
+      ]
+    },
+    {
+      "id": "REQ-14",
+      "summary": "Implement the Events page with event cards showing banner/title/date/venue, register button, create event form (role-gated approval flow), pending events approval list, and registration payment status management",
+      "acceptanceCriteria": [
+        "Event cards display banner image, title, date, venue",
+        "Register button creates a registration entry",
+        "Pending events list is visible only to Executive Core + MasterAdmin",
+        "Mark Paid button is visible only to Executive Core + MasterAdmin"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/EventsPage.tsx",
+          "operation": "modify",
+          "description": "Update EventsPage to display a grid of approved event cards showing banner image (using the blob-storage component's ExternalBlob.getDirectURL()), title, date, time, venue. Include a 'Register' button per event that calls registerForEvent. Add a 'Create Event' form (visible to all approved users) with fields for title, description, date, time, venue, and optional banner image upload using ExternalBlob.fromBytes. For Executive Core + MasterAdmin, the form publishes directly; for others, it submits as pending. Add a 'Pending Events' section (visible only to Executive Core + MasterAdmin) that lists pending events with approve/reject buttons. Add a 'Registrations' section per event (visible only to Executive Core + MasterAdmin) showing registered users with isPaid status and a 'Mark Paid' toggle button. Verify the blob-storage component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/components/events/EventCard.tsx",
+          "operation": "modify",
+          "description": "Update EventCard to render the banner image using ExternalBlob.getDirectURL(), display title, date, time, venue, and include a 'Register' button. Show a success toast notification after registration. Verify the blob-storage component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/components/events/CreateEventForm.tsx",
+          "operation": "modify",
+          "description": "Update CreateEventForm to include fields for title, description, date, time, venue, optional banner image upload, and optional registration limit. Use ExternalBlob.fromBytes for image uploads and add upload progress tracking with withUploadProgress. Submit the form via the createEvent mutation. Verify the blob-storage component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add mutation hooks for event operations: useApproveEvent, useTogglePaid (for marking payment status). Ensure these mutations call the corresponding backend capabilities."
+        }
+      ]
+    },
+    {
+      "id": "REQ-15",
+      "summary": "Implement the Profile page displaying profile photo (editable), name (editable), email (editable), role badges, My Posts tab, My Events tab with isPaid status, Saved Posts tab, and logout button. No dark mode toggle.",
+      "acceptanceCriteria": [
+        "All assigned roles are shown as badges",
+        "My Posts tab lists the user's own posts",
+        "My Events tab lists registrations with paid/unpaid status",
+        "Saved Posts tab lists saved posts",
+        "Dark mode toggle is absent"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/ProfilePage.tsx",
+          "operation": "modify",
+          "description": "Update ProfilePage to display the user's profile photo (editable with upload using ExternalBlob.fromBytes), full name (editable), email (editable), and all assigned roles as styled badges. Include three tabs: 'My Posts' (lists the user's own posts using useGetMyPosts), 'My Events' (lists the user's event registrations using useGetMyRegistrations with isPaid status badges), and 'Saved Posts' (lists saved posts). Add a logout button. Ensure no dark mode toggle is present. Apply the purple gradient to role badges as per the design system. Verify the blob-storage component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add query hooks for profile data: useGetMyPosts (query), useGetMyRegistrations (query), useGetSavedPosts (query if backend supports it, otherwise omit). Add mutation hooks for profile updates: useUploadProfilePic, useUpdateProfile."
+        },
+        {
+          "path": "frontend/src/components/RoleBadge.tsx",
+          "operation": "modify",
+          "description": "Update RoleBadge to use the purple gradient styling for role badges as per the design system. Ensure the badge displays the role label using the utility function from utils/permissions.ts."
+        }
+      ]
+    },
+    {
+      "id": "REQ-16",
+      "summary": "Implement the Admin page with sections for pending user approvals, role management, role assignment, tenure management, and announcement approvals. Access restricted to Executive Core + MasterAdmin.",
+      "acceptanceCriteria": [
+        "Admin page is inaccessible to regular members (redirects away)",
+        "Start New Tenure dialog requires selecting President, VP, ST before confirming",
+        "Role creation form validates name is non-empty",
+        "Pending approvals list shows all unapproved users"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/AdminPage.tsx",
+          "operation": "modify",
+          "description": "Update AdminPage to implement access control: redirect non-executive users away using the permission utility functions. Include the following sections: (1) Pending User Approvals — list users with isApproved=false and an 'Approve' button (MasterAdmin only); (2) Role Management — form to create new roles (name, type: main|sub), list all roles, delete role button; (3) Role Assignment — select user + select role(s) + assign/remove buttons using assignRole mutation; (4) Tenure Management — create tenure form (name, startDate, endDate), activate tenure button, and a 'Start New Tenure' dialog that requires selecting President, VP, ST principals before confirming; (5) Announcement Approvals — list pending announcements with approve buttons. Use the user-approval component's listApprovals and setApproval capabilities. Verify the component's usage instructions before implementing."
+        },
+        {
+          "path": "frontend/src/components/admin/RoleAssignmentPanel.tsx",
+          "operation": "modify",
+          "description": "Update RoleAssignmentPanel to list all approved users with a role selector dropdown and an 'Assign' button that calls the assignRole mutation. Show current role badges for each user."
+        },
+        {
+          "path": "frontend/src/components/admin/TenureManagement.tsx",
+          "operation": "modify",
+          "description": "Update TenureManagement to include a 'Start New Tenure' dialog that accepts selections for President, VP, and Secretary-Treasurer from a list of approved users. Include a tenure period selector (Apr-Sep or Oct-Mar) that sets startDate and endDate. Call the startNewTenure mutation with the selected principals and dates. Show a confirmation prompt before proceeding."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add mutation hooks for admin operations: useApproveUser (calls setApproval with status='approved'), useCreateRole, useDeleteRole, useAssignRole, useStartNewTenure. Add query hooks: useListApprovals, useGetAllUsers, useGetAllRoles (if backend supports it). Verify the user-approval component's usage instructions before implementing."
+        }
+      ]
+    },
+    {
+      "id": "REQ-17",
+      "summary": "Implement the notification bell in the app header showing unread count badge, opening a dropdown panel with notifications sorted newest-first, and marking all as read on open",
+      "acceptanceCriteria": [
+        "Bell shows a numeric badge when there are unread notifications",
+        "Opening the panel marks notifications as read",
+        "Each notification shows type icon and relative timestamp"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/notifications/NotificationBell.tsx",
+          "operation": "modify",
+          "description": "Update NotificationBell to fetch notifications using useGetMyNotifications. Display an unread count badge when there are unread notifications. On click, open the NotificationPanel dropdown and call markNotificationsRead mutation."
+        },
+        {
+          "path": "frontend/src/components/notifications/NotificationPanel.tsx",
+          "operation": "modify",
+          "description": "Update NotificationPanel to render notifications sorted newest-first. Show a Bell icon placeholder when the list is empty. Ensure the panel is scrollable if there are many notifications."
+        },
+        {
+          "path": "frontend/src/components/notifications/NotificationItem.tsx",
+          "operation": "modify",
+          "description": "Update NotificationItem to display a type-specific icon, the notification message, and a relative timestamp using the time utility functions. Show an unread indicator dot for unread notifications."
+        },
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Ensure useGetMyNotifications and useMarkNotificationsRead hooks are present and correctly call the backend capabilities."
+        }
+      ]
+    },
+    {
+      "id": "REQ-18",
+      "summary": "Apply the AnthroVerse design system globally with no dark mode: Primary Purple #4C1D95, Secondary #7C3AED, Accent Teal #00B3A4, Gold #C9A227, Light Background #F7F7FB. Use Poppins as primary font and Inter as secondary. 12px border radius for cards/modals. Gold border for pinned content. Amber for pending, green for paid, purple gradient for role badges.",
+      "acceptanceCriteria": [
+        "No dark mode classes or toggles are present",
+        "Poppins font is loaded and applied to headings",
+        "Pinned card has gold border (#C9A227)",
+        "Pending status badge is amber",
+        "Paid status badge is green"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/index.css",
+          "operation": "modify",
+          "description": "Remove all dark mode CSS variables and dark: classes. Update the :root CSS variables to use the AnthroVerse color palette: --primary: #4C1D95, --secondary: #7C3AED, --accent: #00B3A4, --gold: #C9A227, --background: #F7F7FB. Set --radius to 12px. Ensure Poppins is loaded and applied to headings, Inter to body text. Add utility classes for gold border (.border-gold), amber badge (.badge-pending), green badge (.badge-paid), and purple gradient for role badges (.badge-role)."
+        },
+        {
+          "path": "frontend/tailwind.config.js",
+          "operation": "modify",
+          "description": "Remove all dark mode configuration. Update the color palette to include primaryPurple: '#4C1D95', secondary: '#7C3AED', accentTeal: '#00B3A4', gold: '#C9A227', lightBackground: '#F7F7FB'. Set the default border radius to 12px. Ensure Poppins and Inter fonts are configured. Remove any dark: variant classes."
+        },
+        {
+          "path": "frontend/src/components/feed/PostCard.tsx",
+          "operation": "modify",
+          "description": "Apply the gold border and subtle gold background to pinned post cards. Use the .border-gold and .bg-gold-50 utility classes (define in index.css if needed). Ensure pending badges use amber color and paid badges use green."
+        },
+        {
+          "path": "frontend/src/pages/FeedPage.tsx",
+          "operation": "modify",
+          "description": "Apply the gold border and subtle gold background to the pinned content section at the top of the feed. Use the .border-gold and .bg-gold-50 utility classes."
+        },
+        {
+          "path": "frontend/src/components/RoleBadge.tsx",
+          "operation": "modify",
+          "description": "Apply the purple gradient styling to role badges using the .badge-role utility class. Ensure the gradient uses the primary purple (#4C1D95) and secondary purple (#7C3AED) colors."
+        }
+      ]
+    },
+    {
+      "id": "REQ-19",
+      "summary": "Use the orbital rings image (frontend/public/assets/generated/auth-bg.dim_1200x800.png) as the auth page background with a semi-transparent purple overlay, and use the logo mark (frontend/public/assets/generated/logo-mark.dim_256x256.png) in the app header",
+      "acceptanceCriteria": [
+        "Auth/Login page shows the orbital rings image as full-bleed background",
+        "App header displays the logo derived from this image",
+        "Image is served from frontend/public/assets/generated/"
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/auth/AuthLayout.tsx",
+          "operation": "modify",
+          "description": "Update AuthLayout to use frontend/public/assets/generated/auth-bg.dim_1200x800.png as the full-bleed background image. Apply a semi-transparent purple overlay (rgba(76, 29, 149, 0.7)) on top of the background. Ensure the frosted-glass card container is centered on the page."
+        },
+        {
+          "path": "frontend/src/components/AppHeader.tsx",
+          "operation": "modify",
+          "description": "Update AppHeader to display the AnthroVerse logo using frontend/public/assets/generated/logo-mark.dim_256x256.png as a small circular logo mark. Position the logo prominently in the header alongside the app title 'AnthroVerse' in Poppins font."
+        },
+        {
+          "path": "frontend/src/pages/AuthPage.tsx",
+          "operation": "modify",
+          "description": "Ensure AuthPage uses the AuthLayout wrapper to display the orbital rings background with purple overlay. The LoginForm should be rendered inside the frosted-glass card."
+        },
+        {
+          "path": "frontend/src/pages/WaitingApprovalPage.tsx",
+          "operation": "modify",
+          "description": "Ensure WaitingApprovalPage uses the AuthLayout wrapper to display the orbital rings background with purple overlay."
+        },
+        {
+          "path": "frontend/src/pages/ProfileSetupPage.tsx",
+          "operation": "modify",
+          "description": "Ensure ProfileSetupPage uses the AuthLayout wrapper to display the orbital rings background with purple overlay."
         }
       ]
     }

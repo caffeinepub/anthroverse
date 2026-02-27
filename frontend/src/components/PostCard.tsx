@@ -12,9 +12,9 @@ import {
 import {
   canApproveContent,
   getInitials,
+  formatTimestamp,
+  categoryToLabel,
 } from '../lib/utils';
-import { formatTimestamp } from '../lib/utils';
-import { categoryToLabel } from '../lib/utils';
 import LoadingSpinner from './LoadingSpinner';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -50,7 +50,9 @@ export default function PostCard({ post, userRole, isAdmin, currentPrincipal }: 
     : false;
 
   const isAuthor = currentPrincipal && post.author.toString() === currentPrincipal;
-  const canApprove = canApproveContent(userRole, isAdmin) && post.status === PostStatus.pending;
+  // canApproveContent now takes only the role; isAdmin is handled via rootAdmin role check
+  const canApprove =
+    (canApproveContent(userRole) || isAdmin) && post.status === PostStatus.pending;
   const canDelete = isAdmin || isAuthor;
   const isAnnouncement = post.category === PostCategory.announcements;
   const isPending = post.status === PostStatus.pending;
@@ -189,8 +191,8 @@ export default function PostCard({ post, userRole, isAdmin, currentPrincipal }: 
               <Textarea
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Write a comment..."
-                className="text-sm resize-none min-h-[60px] rounded-xl"
+                placeholder="Write a comment…"
+                className="flex-1 min-h-[60px] text-sm resize-none"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -204,7 +206,11 @@ export default function PostCard({ post, userRole, isAdmin, currentPrincipal }: 
                 disabled={!commentText.trim() || addComment.isPending}
                 className="self-end"
               >
-                {addComment.isPending ? <LoadingSpinner size="sm" /> : 'Post'}
+                {addComment.isPending ? (
+                  <LoadingSpinner size="sm" />
+                ) : (
+                  'Post'
+                )}
               </Button>
             </div>
           )}

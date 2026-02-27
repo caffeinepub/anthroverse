@@ -1,11 +1,13 @@
-import React from 'react';
-import { PostCategory } from '../../backend';
-import { useGetPosts } from '../../hooks/useQueries';
+import React, { useState } from 'react';
+import { PostCategory, Role } from '../../backend';
+import { useGetPosts, useGetCallerUserProfile } from '../../hooks/useQueries';
 import PostCard from '../feed/PostCard';
 import CreatePostForm from '../feed/CreatePostForm';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Lock, PenSquare } from 'lucide-react';
-import { useState } from 'react';
+import { toast } from 'sonner';
+import { useToggleLike, useApprovePost, useDeletePost } from '../../hooks/useQueries';
+import { useInternetIdentity } from '../../hooks/useInternetIdentity';
 
 interface GroupFeedProps {
   category: PostCategory;
@@ -14,7 +16,42 @@ interface GroupFeedProps {
 
 export default function GroupFeed({ category, groupName }: GroupFeedProps) {
   const { data: posts = [], isLoading } = useGetPosts(category);
+  const { data: userProfile } = useGetCallerUserProfile();
+  const { identity } = useInternetIdentity();
   const [showCreate, setShowCreate] = useState(false);
+
+  const toggleLike = useToggleLike();
+  const approvePost = useApprovePost();
+  const deletePost = useDeletePost();
+
+  const userRole = userProfile?.role ?? Role.member;
+  const callerPrincipal = identity?.getPrincipal().toString();
+
+  const handleLike = async (postId: bigint) => {
+    try {
+      await toggleLike.mutateAsync(postId);
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to like post');
+    }
+  };
+
+  const handleApprove = async (postId: bigint) => {
+    try {
+      await approvePost.mutateAsync(postId);
+      toast.success('Post approved!');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to approve post');
+    }
+  };
+
+  const handleDelete = async (postId: bigint) => {
+    try {
+      await deletePost.mutateAsync(postId);
+      toast.success('Post deleted');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete post');
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -66,7 +103,15 @@ export default function GroupFeed({ category, groupName }: GroupFeedProps) {
       ) : (
         <div className="space-y-4">
           {posts.map(post => (
-            <PostCard key={post.id.toString()} post={post} />
+            <PostCard
+              key={post.id.toString()}
+              post={post}
+              callerPrincipal={callerPrincipal}
+              userRole={userRole}
+              onLike={handleLike}
+              onApprove={handleApprove}
+              onDelete={handleDelete}
+            />
           ))}
         </div>
       )}
