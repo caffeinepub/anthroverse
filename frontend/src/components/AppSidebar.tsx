@@ -1,4 +1,15 @@
+import React from 'react';
 import { useNavigate, useLocation } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  Home,
+  Calendar,
+  TrendingUp,
+  Shield,
+  LogOut,
+  User,
+  ChevronRight,
+} from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -12,172 +23,190 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import {
-  Home,
-  Calendar,
-  TrendingUp,
-  Settings,
-  LogOut,
-  User,
-  Shield,
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useInternetIdentity } from '../hooks/useInternetIdentity';
+import { useGetCallerUserProfile } from '../hooks/useQueries';
+import { getInitials, roleToLabel, roleBadgeClass, ROOT_ADMIN_EMAIL } from '../lib/utils';
 import { Role } from '../backend';
-import type { User as UserType } from '../backend';
+import { canManageUsers, canAccessChapterGrowth } from '../utils/permissions';
 
-interface AppSidebarProps {
-  userProfile: UserType | null;
-  onLogout: () => void;
+interface NavItem {
+  label: string;
+  path: string;
+  icon: React.ReactNode;
 }
 
-const roleLabels: Record<string, string> = {
-  president: 'President',
-  vicePresident: 'Vice President',
-  secretaryTreasurer: 'Secretary Treasurer',
-  lt: 'Leadership Team',
-  mc: 'Membership Committee',
-  elt: 'Extended Leadership Team',
-  member: 'Member',
-  rootAdmin: 'Root Admin',
-};
-
-const roleBadgeColors: Record<string, string> = {
-  president: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
-  vicePresident: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-  secretaryTreasurer: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
-  lt: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
-  mc: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
-  elt: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
-  member: 'bg-muted text-muted-foreground',
-  rootAdmin: 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300',
-};
-
-const navItems = [
-  { label: 'Feed', path: '/', icon: Home },
-  { label: 'Events', path: '/events', icon: Calendar },
-  { label: 'Chapter Growth', path: '/chapter-growth', icon: TrendingUp },
-  { label: 'Profile', path: '/profile', icon: User },
-];
-
-export default function AppSidebar({ userProfile, onLogout }: AppSidebarProps) {
+export default function AppSidebar() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { clear } = useInternetIdentity();
+  const queryClient = useQueryClient();
+  const { data: userProfile } = useGetCallerUserProfile();
 
-  const roleKey = userProfile?.role
-    ? (Object.keys(userProfile.role as any)[0] ?? 'member')
-    : 'member';
+  const userRole = userProfile?.role;
+  const isAdmin = userRole === Role.rootAdmin || userProfile?.email === ROOT_ADMIN_EMAIL;
 
-  // Check if user is admin (rootAdmin role OR president/vicePresident/secretaryTreasurer/lt)
-  const isAdmin =
-    roleKey === 'rootAdmin' ||
-    roleKey === 'president' ||
-    roleKey === 'vicePresident' ||
-    roleKey === 'secretaryTreasurer' ||
-    roleKey === 'lt';
+  const handleLogout = async () => {
+    await clear();
+    queryClient.clear();
+  };
 
-  const roleLabel = roleLabels[roleKey] ?? 'Member';
-  const badgeColor = roleBadgeColors[roleKey] ?? roleBadgeColors.member;
+  const mainNavItems: NavItem[] = [
+    { label: 'Feed', path: '/', icon: <Home className="h-4 w-4" /> },
+    { label: 'Events', path: '/events', icon: <Calendar className="h-4 w-4" /> },
+  ];
 
-  const initials = userProfile?.name
-    ? userProfile.name
-        .split(' ')
-        .map(n => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2)
-    : '?';
+  if (userRole && canAccessChapterGrowth(userRole)) {
+    mainNavItems.push({
+      label: 'Chapter Growth',
+      path: '/chapter-growth',
+      icon: <TrendingUp className="h-4 w-4" />,
+    });
+  }
+
+  const isActive = (path: string) =>
+    location.pathname === path || (path !== '/' && location.pathname.startsWith(path + '/'));
 
   return (
-    <Sidebar className="border-r border-border">
-      <SidebarHeader className="p-4">
+    <Sidebar>
+      {/* Header */}
+      <SidebarHeader className="p-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
           <img
-            src="/assets/generated/logo-mark.dim_256x256.png"
+            src="/assets/generated/anthroverse-logo.dim_256x256.png"
             alt="AnthroVerse"
-            className="w-9 h-9 rounded-lg"
+            className="h-8 w-8 rounded-lg object-cover"
           />
           <div>
-            <h1 className="font-bold text-foreground text-base leading-tight">AnthroVerse</h1>
-            <p className="text-xs text-muted-foreground">Community Hub</p>
+            <p className="font-bold text-sm text-sidebar-foreground">AnthroVerse</p>
+            <p className="text-xs text-sidebar-foreground/60">Community Hub</p>
           </div>
         </div>
       </SidebarHeader>
 
-      <SidebarSeparator />
-
       <SidebarContent>
+        {/* User Profile Section */}
+        {userProfile && (
+          <SidebarGroup className="pt-4 pb-2">
+            <SidebarGroupContent>
+              <button
+                onClick={() => navigate({ to: '/profile' })}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-sidebar-accent transition-colors text-left"
+              >
+                <Avatar className="h-9 w-9 shrink-0">
+                  {userProfile.profilePic ? (
+                    <img
+                      src={userProfile.profilePic.getDirectURL()}
+                      alt={userProfile.name}
+                      className="h-full w-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <AvatarFallback className="bg-primary/20 text-primary text-sm font-bold">
+                      {getInitials(userProfile.name)}
+                    </AvatarFallback>
+                  )}
+                </Avatar>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="text-sm font-semibold text-sidebar-foreground truncate">
+                      {userProfile.name}
+                    </p>
+                    {isAdmin && (
+                      <Badge className="text-xs px-1.5 py-0 bg-rose-500 text-white shrink-0">
+                        Admin
+                      </Badge>
+                    )}
+                  </div>
+                  <Badge className={`text-xs mt-0.5 ${roleBadgeClass(userProfile.role)}`}>
+                    {roleToLabel(userProfile.role)}
+                  </Badge>
+                </div>
+                <ChevronRight className="h-3.5 w-3.5 text-sidebar-foreground/40 shrink-0" />
+              </button>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        <SidebarSeparator />
+
+        {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map(item => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.path;
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => navigate({ to: item.path })}
-                      className="cursor-pointer"
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              {mainNavItems.map((item) => (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton
+                    isActive={isActive(item.path)}
+                    onClick={() => navigate({ to: item.path })}
+                    className="cursor-pointer"
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {isAdmin && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Administration</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    isActive={location.pathname === '/admin'}
-                    onClick={() => navigate({ to: '/admin' })}
-                    className="cursor-pointer"
-                  >
-                    <Shield className="w-4 h-4" />
-                    <span>Admin Panel</span>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
+        {/* Admin Section */}
+        {(isAdmin || (userRole && canManageUsers(userRole))) && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Administration</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      isActive={isActive('/admin')}
+                      onClick={() => navigate({ to: '/admin' })}
+                      className="cursor-pointer"
+                    >
+                      <Shield className="h-4 w-4" />
+                      <span>Admin Panel</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </>
         )}
+
+        {/* Account */}
+        <SidebarSeparator />
+        <SidebarGroup>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={isActive('/profile')}
+                  onClick={() => navigate({ to: '/profile' })}
+                  className="cursor-pointer"
+                >
+                  <User className="h-4 w-4" />
+                  <span>My Profile</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4">
-        <div className="flex items-center gap-3 mb-3">
-          <Avatar className="w-9 h-9">
-            {userProfile?.profilePic ? (
-              <AvatarImage src={userProfile.profilePic.getDirectURL()} />
-            ) : null}
-            <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground truncate">
-              {userProfile?.name ?? 'Loading...'}
-            </p>
-            <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-0.5 ${badgeColor}`}>
-              {roleLabel}
-            </span>
-          </div>
-        </div>
-        <button
-          onClick={onLogout}
-          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+      {/* Footer with Logout */}
+      <SidebarFooter className="p-3 border-t border-sidebar-border">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          onClick={handleLogout}
         >
-          <LogOut className="w-4 h-4" />
-          <span>Logout</span>
-        </button>
+          <LogOut className="h-4 w-4" />
+          <span>Log Out</span>
+        </Button>
       </SidebarFooter>
     </Sidebar>
   );

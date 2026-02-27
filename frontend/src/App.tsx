@@ -23,12 +23,10 @@ const queryClient = new QueryClient({
 
 // ─── Router ──────────────────────────────────────────────────────────────────
 
+// MainLayout uses <Outlet /> internally via SidebarInset, so the root route
+// uses it as the layout component directly — no children prop needed.
 const rootRoute = createRootRoute({
-  component: () => (
-    <MainLayout>
-      <Outlet />
-    </MainLayout>
-  ),
+  component: MainLayout,
 });
 
 const feedRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: FeedPage });
@@ -63,8 +61,8 @@ function InnerApp() {
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#F7F7FB" }}>
         <div className="text-center">
           <img src="/assets/generated/anthroverse-logo.dim_256x256.png" alt="AnthroVerse" className="w-20 h-20 mx-auto mb-4 rounded-full object-cover" />
-          <div className="w-8 h-8 border-4 border-primary-700 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="font-poppins text-primary-700 font-semibold">Loading AnthroVerse…</p>
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="font-semibold text-primary">Loading AnthroVerse…</p>
         </div>
       </div>
     );

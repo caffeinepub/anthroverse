@@ -25,7 +25,9 @@ export interface User {
     isApproved: boolean;
     name: string;
     role: Role;
+    description: string;
     email: string;
+    companyName: string;
     profilePic?: ExternalBlob;
 }
 export interface Registration {
@@ -156,7 +158,9 @@ export interface backendInterface {
      */
     getAllUsers(): Promise<Array<[Principal, User]>>;
     /**
-     * / Returns the caller's full profile. MasterAdmin enforcement is applied here.
+     * / Returns the caller's full profile.
+     * / Requires the caller to be authenticated (non-anonymous) with at least #user permission,
+     * / or to be the MasterAdmin.
      */
     getCallerUserProfile(): Promise<User | null>;
     getCallerUserRole(): Promise<UserRole>;
@@ -186,6 +190,11 @@ export interface backendInterface {
      */
     getPendingUsers(): Promise<Array<[Principal, User]>>;
     getPosts(categoryFilter: PostCategory | null): Promise<Array<PostView>>;
+    /**
+     * / Get another user's profile.
+     * / Any approved user can view any other user's profile (needed for community features).
+     * / Anonymous users cannot view profiles.
+     */
     getUserProfile(user: Principal): Promise<User | null>;
     isCallerAdmin(): Promise<boolean>;
     isCallerApproved(): Promise<boolean>;
@@ -197,6 +206,12 @@ export interface backendInterface {
     registerForEvent(eventId: bigint): Promise<void>;
     registerUser(name: string, email: string): Promise<void>;
     requestApproval(): Promise<void>;
+    /**
+     * / Save the caller's own profile.
+     * / Requires the caller to be authenticated (non-anonymous) with at least #user permission,
+     * / or to be the MasterAdmin.
+     * / Callers cannot escalate their own role or approval status.
+     */
     saveCallerUserProfile(profile: User): Promise<void>;
     searchPostsByMember(memberName: string): Promise<Array<PostView>>;
     /**

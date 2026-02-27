@@ -35,6 +35,8 @@ export default function ProfileSetupPage() {
         role: Role.member,
         isApproved: false,
         profilePic: undefined,
+        companyName: '',
+        description: '',
       });
 
       if (picFile) {

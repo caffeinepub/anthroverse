@@ -1,79 +1,56 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "AnthroVerse — a private, members-only governance and communication platform for the Anthropos chapter. Features a multi-role leadership hierarchy (MasterAdmin, President, VP, Secretary Treasurer, and dynamic roles), tenure-driven leadership transitions, moderated feed/announcements, chapter meeting management, events module with registration and payment tracking, and a rich social feed. All permissions are backend-enforced. UI uses purple/teal/gold design system with Poppins/Inter fonts, light mode only, with a user-provided image as main page background and logo.",
+  "summary": "Web app with user profiles, admin management, and role/post assignment features. Admin account (graph.dust@gmail.com) needs full visibility into member profiles, pending approvals, and content management tools.",
   "architectural_notes": [
-    "All permissions enforced at backend (not UI-only); MasterAdmin cannot be removed or downgraded",
-    "Firestore collections: Users, Roles, UserRoles, Posts, Comments, Events, Registrations, Meetings, Tenures, PinnedContent, SavedPosts, Polls, Reactions",
-    "UI: Primary Purple #4C1D95, Secondary #7C3AED, Teal #00B3A4, Gold #C9A227, Light BG #F7F7FB; Fonts: Poppins + Inter; 12px rounded corners; light mode only",
-    "User-provided image used as main page background and logo",
-    "Only one pinned item allowed at a time; pinned content highlighted with gold accent"
+    "Admin account identified as graph.dust@gmail.com — requires elevated permissions and visibility across all member data"
   ],
-  "known_issues": [],
-  "isFixRequest": false,
-  "imageRequirements": "## Required Images\n- AnthroVerse orbital rings logo mark — circular crop of the purple concentric rings pattern with deep purple (#4C1D95) tint overlay, suitable as app icon (anthroverse-logo.dim_256x256.png)\n- AnthroVerse auth page background — full portrait orbital/planetary rings illustration with concentric purple rings on near-white background, wide format (anthroverse-bg.dim_900x1600.png)",
+  "known_issues": [
+    "Admin does not see member profiles or pending approvals for first-time logins",
+    "Admin tag not displayed on profile",
+    "No UI for admin to add posts/roles or assign to members",
+    "Profile editing (image, name, category, company, description) not available",
+    "No logout option present"
+  ],
+  "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-build-the-complete-react-frontend-for-anthroverse-with-the-following-page-route-structure-1-auth-flow-login-page-profile-setup-page-waiting-for-approval-page-2-main-app-approved-users-only-home-feed-chapter-meeting-tab-events-profile-admin-gated-use-bottom-navigation-bar-on-mobile-sidebar-on-desktop-all-routing-and-access-control-must-reflect-backend-returned-role-data",
-      "title": "Build the complete React frontend for AnthroVerse with the following page/route structure: (1) Auth flow: Login page → Profile Setup page → Waiting for Approval page; (2) Main app (approved users only): Home/Feed, Chapter Meeting tab, Events, Profile, Admin (gated). Use bottom navigation bar on mobile, sidebar on desktop. All routing and access control must reflect backend-returned role data.",
+      "id": "feature-the-admin-account-graph-dust-gmail-com-root-admin-must-see-all-member-profiles-and-pending-approval-requests-in-the-adminpage-including-members-who-have-just-logged-in-for-the-first-time-and-have-not-yet-been-approved-the-pending-approvals-list-and-the-member-profiles-list-must-both-be-populated-and-visible-immediately-when-the-admin-views-the-admin-panel",
+      "title": "The admin account (graph.dust@gmail.com / root admin) must see all member profiles and pending approval requests in the AdminPage, including members who have just logged in for the first time and have not yet been approved. The pending approvals list and the member profiles list must both be populated and visible immediately when the admin views the admin panel.",
       "reqIds": [
-        "REQ-11"
+        "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-implement-the-home-feed-page-with-1-pinned-content-section-at-the-top-displays-the-single-pinned-item-announcement-event-or-meeting-with-a-gold-c9a227-accent-card-and-a-pin-icon-pin-unpin-button-visible-only-to-executive-core-masteradmin-2-category-filter-tabs-announcements-general-fun-requirements-3-post-creation-form-with-text-input-category-selector-image-video-gif-attach-buttons-emoji-picker-button-and-poll-creator-4-post-cards-showing-author-avatar-name-role-badge-timestamp-content-media-poll-if-any-emoji-reaction-bar-comment-count-reshare-save-share-buttons-5-comment-threads-under-each-post-with-same-rich-input-options",
-      "title": "Implement the Home/Feed page with: (1) Pinned Content section at the top — displays the single pinned item (announcement, event, or meeting) with a gold (#C9A227) accent card and a pin icon; pin/unpin button visible only to Executive Core + MasterAdmin; (2) Category filter tabs: Announcements, General, Fun, Requirements; (3) Post creation form with text input, category selector, image/video/GIF attach buttons, emoji picker button, and poll creator; (4) Post cards showing author avatar, name, role badge, timestamp, content, media, poll (if any), emoji reaction bar, comment count, reshare, save, share buttons; (5) Comment threads under each post with same rich input options.",
+      "id": "feature-the-profile-page-and-profile-card-display-must-show-an-admin-badge-or-tag-for-users-who-have-the-admin-root-role-this-tag-should-be-visible-on-the-admin-s-own-profile-page-and-wherever-their-profile-is-displayed-to-others",
+      "title": "The profile page and profile card/display must show an 'Admin' badge or tag for users who have the admin/root role. This tag should be visible on the admin's own profile page and wherever their profile is displayed to others.",
       "reqIds": [
-        "REQ-12"
+        "REQ-2"
       ],
       "version": 1
     },
     {
-      "id": "feature-implement-the-chapter-meeting-tab-page-displaying-all-meeting-fields-date-time-venue-stimulant-theme-speaker-dress-code-notes-show-an-edit-meeting-form-all-fields-editable-for-executive-core-masteradmin-only-include-a-pin-this-meeting-button-for-executive-core-masteradmin-display-a-styled-meeting-card-with-all-fields-prominently",
-      "title": "Implement the Chapter Meeting tab page displaying all meeting fields (date, time, venue, stimulant, theme, speaker, dress code, notes). Show an 'Edit Meeting' form (all fields editable) for Executive Core + MasterAdmin only. Include a 'Pin This Meeting' button for Executive Core + MasterAdmin. Display a styled meeting card with all fields prominently.",
+      "id": "feature-the-admin-account-must-have-ui-controls-to-a-create-and-submit-posts-directly-from-the-feed-or-admin-panel-b-create-and-assign-roles-to-members-and-c-assign-existing-roles-to-specific-members-these-controls-should-be-accessible-from-the-admin-panel-or-sidebar-admin-section",
+      "title": "The admin account must have UI controls to: (a) create and submit posts directly from the feed or admin panel, (b) create and assign roles to members, and (c) assign existing roles to specific members. These controls should be accessible from the admin panel or sidebar admin section.",
       "reqIds": [
-        "REQ-13"
+        "REQ-3"
       ],
       "version": 1
     },
     {
-      "id": "feature-implement-the-events-page-with-1-grid-of-approved-event-cards-showing-banner-image-title-date-time-venue-2-register-button-per-event-calls-registerforevent-3-create-event-form-executive-core-masteradmin-publishes-directly-others-submits-as-pending-with-fields-title-description-date-time-venue-banner-image-upload-4-pending-events-approval-list-visible-to-executive-core-masteradmin-with-approve-reject-actions-5-registration-list-per-event-showing-ispaid-status-with-a-mark-paid-button-for-executive-core-masteradmin",
-      "title": "Implement the Events page with: (1) Grid of approved event cards showing banner image, title, date, time, venue; (2) Register button per event (calls registerForEvent); (3) Create Event form (Executive Core + MasterAdmin: publishes directly; others: submits as pending) with fields title, description, date, time, venue, banner image upload; (4) Pending events approval list visible to Executive Core + MasterAdmin with approve/reject actions; (5) Registration list per event showing isPaid status with a 'Mark Paid' button for Executive Core + MasterAdmin.",
+      "id": "feature-all-user-profiles-must-be-editable-the-profile-edit-form-must-include-fields-for-profile-picture-image-upload-display-name-category-company-name-and-description-bio-these-fields-must-be-saveable-and-persisted-to-the-backend-the-backend-user-type-must-be-updated-to-include-companyname-and-description-fields-if-not-already-present",
+      "title": "All user profiles must be editable. The profile edit form must include fields for: profile picture (image upload), display name, category, company name, and description/bio. These fields must be saveable and persisted to the backend. The backend User type must be updated to include companyName and description fields if not already present.",
       "reqIds": [
-        "REQ-14"
+        "REQ-4"
       ],
       "version": 1
     },
     {
-      "id": "feature-implement-the-profile-page-displaying-profile-photo-editable-full-name-editable-email-editable-all-assigned-roles-as-styled-badges-my-posts-tab-list-of-user-s-own-posts-my-events-tab-events-the-user-registered-for-with-ispaid-status-saved-posts-tab-and-a-logout-button-no-dark-mode-toggle-profile-photo-upload-stored-as-base64-or-blob-url",
-      "title": "Implement the Profile page displaying: profile photo (editable), full name (editable), email (editable), all assigned roles as styled badges, My Posts tab (list of user's own posts), My Events tab (events the user registered for with isPaid status), Saved Posts tab, and a Logout button. No dark mode toggle. Profile photo upload stored as base64 or blob URL.",
+      "id": "feature-add-a-visible-logout-button-accessible-to-all-authenticated-users-the-logout-option-must-be-present-in-the-main-navigation-sidebar-and-or-the-app-header-for-every-logged-in-user-not-only-on-the-waiting-approval-screen",
+      "title": "Add a visible logout button accessible to all authenticated users. The logout option must be present in the main navigation sidebar and/or the app header for every logged-in user, not only on the waiting approval screen.",
       "reqIds": [
-        "REQ-15"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-implement-the-admin-page-accessible-only-to-executive-core-masteradmin-with-the-following-sections-1-pending-user-approvals-list-with-approve-button-masteradmin-only-2-role-management-create-new-role-name-type-main-sub-delete-role-view-all-roles-3-role-assignment-select-user-select-role-s-assign-remove-4-tenure-management-create-tenure-name-startdate-enddate-activate-tenure-start-new-tenure-dialog-that-accepts-new-president-vp-st-principal-selections-5-announcement-approvals-list-pending-announcements-with-approve-action",
-      "title": "Implement the Admin page accessible only to Executive Core + MasterAdmin with the following sections: (1) Pending User Approvals — list with Approve button (MasterAdmin only); (2) Role Management — create new role (name, type: main|sub), delete role, view all roles; (3) Role Assignment — select user + select role(s) + assign/remove; (4) Tenure Management — create tenure (name, startDate, endDate), activate tenure, 'Start New Tenure' dialog that accepts new President/VP/ST principal selections; (5) Announcement Approvals — list pending announcements with approve action.",
-      "reqIds": [
-        "REQ-16"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-implement-the-notification-bell-in-the-app-header-showing-unread-count-badge-clicking-opens-a-dropdown-panel-listing-notifications-sorted-newest-first-with-type-icon-message-and-relative-timestamp-unread-notifications-have-a-visual-indicator-dot-opening-the-panel-marks-all-as-read",
-      "title": "Implement the notification bell in the app header showing unread count badge. Clicking opens a dropdown/panel listing notifications sorted newest-first with type icon, message, and relative timestamp. Unread notifications have a visual indicator dot. Opening the panel marks all as read.",
-      "reqIds": [
-        "REQ-17"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-apply-the-anthroverse-design-system-globally-with-no-dark-mode-primary-purple-4c1d95-secondary-7c3aed-accent-teal-00b3a4-gold-c9a227-light-background-f7f7fb-use-poppins-as-the-primary-font-and-inter-as-secondary-all-cards-and-modals-use-12px-border-radius-pinned-content-cards-use-a-gold-border-and-subtle-gold-background-tint-pending-badges-use-amber-color-paid-badges-use-green-role-badges-use-purple-gradient-remove-all-dark-mode-css-variables-and-theme-toggles",
-      "title": "Apply the AnthroVerse design system globally with no dark mode: Primary Purple #4C1D95, Secondary #7C3AED, Accent Teal #00B3A4, Gold #C9A227, Light Background #F7F7FB. Use Poppins as the primary font and Inter as secondary. All cards and modals use 12px border radius. Pinned content cards use a gold border and subtle gold background tint. Pending badges use amber color. Paid badges use green. Role badges use purple gradient. Remove all dark mode CSS variables and theme toggles.",
-      "reqIds": [
-        "REQ-18"
+        "REQ-5"
       ],
       "version": 1
     }
@@ -81,150 +58,32 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Permanent MasterAdmin account (graph.dust@gmail.com) with auto-assignment on first login and full override powers",
+      "summary": "Admin (graph.dust@gmail.com) should see all member profiles and pending approvals for first-time logins",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-2",
-      "summary": "Executive Core roles (President, VP, Secretary Treasurer) assigned only by MasterAdmin with elevated permissions",
+      "summary": "Profile should display admin tag for admin accounts",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-3",
-      "summary": "Multi-role support with many-to-many User-Role relationships, dynamic role creation/removal",
+      "summary": "Admin should have the ability to add posts/roles and assign them to members",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-4",
-      "summary": "Admin-defined tenure system with startDate/endDate/active/tenureName, 'Start New Tenure' logic clears roles and re-assigns",
+      "summary": "All profiles should be editable with images, names, category, company name, and description",
       "reqIds": [],
       "status": "pending"
     },
     {
       "id": "AR-5",
-      "summary": "Main page with pinned content section (one item, gold highlight), feed, and bottom navigation",
+      "summary": "Add a logout option for all users",
       "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-6",
-      "summary": "Feed system with Announcements/General/Fun/Requirements categories; posts support text, images, videos, GIFs, polls, emojis, attachments; reactions, comments, reshare, save",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-7",
-      "summary": "Announcement approval workflow: Executive Core/MasterAdmin publish directly; others submit as Pending for approval",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-8",
-      "summary": "Chapter Meeting tab with date/time/venue/stimulant/theme/speaker/dress code/notes fields; editable only by Executive Core + MasterAdmin",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-9",
-      "summary": "Events module with approval workflow, event registration (eventRef/userRef/isPaid/createdTime), and payment status marking by Executive Core + MasterAdmin only",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-10",
-      "summary": "Profile module: photo, name, roles, email, My Posts, My Events, Saved Posts, logout; no dark mode; notifications for all key actions",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-11",
-      "summary": "Implement a complete backend actor in Motoko with the following stable data stores: Users (principal, email, name, profilePhoto, isApproved, createdAt), Roles (id, name, type: main|sub, createdBy, createdAt), UserRoles (userId, roleId — many-to-many), Posts (id, authorId, category: Announcements|General|Fun|Requirements, content, mediaUrls, status: pending|published, isPinned, createdAt), Comments (id, postId, authorId, content, mediaUrls, createdAt), Reactions (id, postId, userId, emoji), Polls (id, postId, question, options, votes), Events (id, title, description, date, time, venue, bannerImage, status: pending|published, createdBy, createdAt), Registrations (id, eventRef, userRef, isPaid, createdAt), Meetings (id, date, time, venue, stimulant, theme, speaker, dressCode, notes, isPinned, createdAt), Tenures (id, tenureName, startDate, endDate, isActive), PinnedContent (single record: contentType, contentId, pinnedBy, pinnedAt), SavedPosts (userId, postId), Notifications (id, userId, type, message, isRead, createdAt).",
-      "reqIds": [
-        "REQ-1"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-12",
-      "summary": "Implement MasterAdmin enforcement: on every call that retrieves or modifies the caller's profile, if the caller's associated email is 'graph.dust@gmail.com', automatically ensure the MasterAdmin role is assigned to that user. The MasterAdmin role must never be removable from this email by any operation, including tenure resets. Expose a backend query `getMyProfile` that returns the caller's full profile including all assigned roles.",
-      "reqIds": [
-        "REQ-2"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-13",
-      "summary": "Implement backend permission enforcement for all write operations using a role-check guard. Define a helper that returns the caller's set of roles and checks membership. Enforce the following rules at backend level: (a) Only MasterAdmin can assign President, VP, Secretary Treasurer; (b) Only MasterAdmin can create/activate/modify tenures and trigger 'Start New Tenure'; (c) Only MasterAdmin can approve users; (d) Executive Core (President, VP, ST) + MasterAdmin can: create/publish announcements directly, approve pending announcements, create/publish events directly, approve pending events, mark isPaid=true, pin/unpin content, edit Meeting records, create/delete roles; (e) All other roles submit announcements/events as Pending; (f) Users may only edit/delete their own posts; (g) Only Executive Core + MasterAdmin can delete any content.",
-      "reqIds": [
-        "REQ-3"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-14",
-      "summary": "Implement the 'Start New Tenure' backend function callable only by MasterAdmin. When triggered: (1) deactivate all existing tenures, create a new Tenure record with provided tenureName, startDate, endDate, isActive=true; (2) remove all UserRole assignments for roles named President, VP, ST, LT, MC, ELT and all sub-roles except the MasterAdmin role assignment for graph.dust@gmail.com; (3) accept new President, VP, ST principal IDs as parameters and assign those roles to the provided users immediately; (4) emit notifications to all members that a new tenure has started.",
-      "reqIds": [
-        "REQ-4"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-15",
-      "summary": "Implement backend functions for the full Post/Feed system: createPost (text, category, optional mediaUrls, optional pollData), approvePost, deletePost, likePost/reactToPost (emoji), addComment, deleteComment, savePost, unsavePost, getPosts (filtered by category, status=published only for non-admins), getPendingPosts (admin only), getSavedPosts. Posts and comments must store mediaUrls as an array of text (URLs/base64). Polls stored with question + options array + per-option vote counts.",
-      "reqIds": [
-        "REQ-5"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-16",
-      "summary": "Implement backend functions for PinnedContent: pinContent(contentType, contentId) and unpinContent(), getPinnedContent(). Only one item may be pinned at a time — pinning a new item replaces the existing one. Only Executive Core + MasterAdmin may call pinContent/unpinContent. getPinnedContent is public to all approved members.",
-      "reqIds": [
-        "REQ-6"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-17",
-      "summary": "Implement backend functions for the Events module: createEvent (title, description, date, time, venue, optional bannerImage), approveEvent, registerForEvent, markPayment(registrationId, isPaid: Bool), getEvents (published only for regular members), getPendingEvents (Executive Core + MasterAdmin), getMyRegistrations. Payment marking restricted to Executive Core + MasterAdmin.",
-      "reqIds": [
-        "REQ-7"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-18",
-      "summary": "Implement backend functions for the Chapter Meeting module: createOrUpdateMeeting (date, time, venue, stimulant, theme, optional speaker, optional dressCode, optional notes), getMeeting. Only Executive Core + MasterAdmin may create or update meeting details. Any approved member can read meeting details.",
-      "reqIds": [
-        "REQ-8"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-19",
-      "summary": "Implement backend notification system: store Notifications per user with fields (id, userId, type, message, isRead, createdAt). Emit notifications automatically on: user approved, announcement published, event created/approved, meeting updated, role assigned/removed, tenure started, event reminder (day-of). Expose getMyNotifications and markNotificationsRead functions.",
-      "reqIds": [
-        "REQ-9"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-20",
-      "summary": "Implement backend user management functions: registerUser (name, email, optional profilePhoto), approveUser (MasterAdmin only), getPendingUsers (MasterAdmin only), getAllUsers (Executive Core + MasterAdmin), getMyProfile, updateMyProfile (name, email, profilePhoto). All platform features require isApproved=true, enforced at backend per function.",
-      "reqIds": [
-        "REQ-10"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-29",
-      "summary": "Use the uploaded image (PSX_20260227_075738(1).jpg — orbital/planetary rings pattern) as the main page background on the Login/Auth pages and as the AnthroVerse logo mark in the app header. Serve it from frontend/public/assets/generated/anthroverse-bg.png. The auth page should display this image as a full-bleed background with a semi-transparent purple overlay. The header logo should use a small cropped circular version of the image.",
-      "reqIds": [
-        "REQ-19"
-      ],
       "status": "pending"
     }
   ],

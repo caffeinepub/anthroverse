@@ -9,6 +9,7 @@ import List "mo:core/List";
 import Set "mo:core/Set";
 import Order "mo:core/Order";
 import Nat "mo:core/Nat";
+import Migration "migration";
 
 import AccessControl "authorization/access-control";
 import MixinAuthorization "authorization/MixinAuthorization";
@@ -16,7 +17,8 @@ import Storage "blob-storage/Storage";
 import MixinStorage "blob-storage/Mixin";
 import UserApproval "user-approval/approval";
 
-(actor {
+(with migration = Migration.run)
+actor {
   include MixinStorage();
 
   module EventEntriesByEventId {
@@ -68,6 +70,8 @@ import UserApproval "user-approval/approval";
     role : Role;
     isApproved : Bool;
     profilePic : ?Storage.ExternalBlob;
+    companyName : Text;
+    description : Text;
   };
 
   public type Post = {
@@ -186,6 +190,8 @@ import UserApproval "user-approval/approval";
           role = #rootAdmin;
           isApproved = true;
           profilePic = null;
+          companyName = "";
+          description = "";
         };
         users.add(caller, user);
         AccessControl.assignRole(accessControlState, caller, caller, #admin);
@@ -243,7 +249,7 @@ import UserApproval "user-approval/approval";
   // Role-check helpers
   // ---------------------------------------------------------------------------
 
-  /// Returns true if the caller is the MasterAdmin.
+  /// Ensures the caller is the MasterAdmin.
   /// Use this for operations that ONLY MasterAdmin may perform:
   ///   - approving users
   ///   - assigning President/VP/ST roles
@@ -484,41 +490,28 @@ import UserApproval "user-approval/approval";
     isApprovedOrAdmin(caller);
   };
 
-  /// Returns the caller's full profile. MasterAdmin enforcement is applied here.
-  public shared ({ caller }) func getCallerUserProfile() : async ?User {
+  /// Returns the caller's full profile.
+  /// Requires the caller to be authenticated (non-anonymous) with at least #user permission,
+  /// or to be the MasterAdmin.
+  public query ({ caller }) func getCallerUserProfile() : async ?User {
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Anonymous users cannot get their profile");
+    };
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       // MasterAdmin may not have #user role yet — allow them through.
       if (not isMasterAdmin(caller)) {
         Runtime.trap("Unauthorized: Only authenticated users can get their profile");
       };
     };
-
     switch (users.get(caller)) {
       case (null) {
-        // Bootstrap: if this is the MasterAdmin (identified via AccessControl
-        // admin flag set in a prior session), create their record.
-        if (isMasterAdmin(caller)) {
-          let rootProfile : User = {
-            name = "Root Admin";
-            email = "graph.dust@gmail.com";
-            role = #rootAdmin;
-            isApproved = true;
-            profilePic = null;
-          };
-          users.add(caller, rootProfile);
-          AccessControl.assignRole(accessControlState, caller, caller, #admin);
-          return ?rootProfile;
-        };
-        return null;
+        null;
       };
       case (?u) {
         if (u.email == "graph.dust@gmail.com") {
           // Always return a fully-approved rootAdmin profile for this email.
           if (u.role != #rootAdmin or not u.isApproved) {
-            let updated : User = { u with role = #rootAdmin; isApproved = true };
-            users.add(caller, updated);
-            AccessControl.assignRole(accessControlState, caller, caller, #admin);
-            return ?updated;
+            return ?{ u with role = #rootAdmin; isApproved = true };
           };
         };
         ?u;
@@ -526,7 +519,14 @@ import UserApproval "user-approval/approval";
     };
   };
 
+  /// Save the caller's own profile.
+  /// Requires the caller to be authenticated (non-anonymous) with at least #user permission,
+  /// or to be the MasterAdmin.
+  /// Callers cannot escalate their own role or approval status.
   public shared ({ caller }) func saveCallerUserProfile(profile : User) : async () {
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Anonymous users cannot save their profile");
+    };
     if (not AccessControl.hasPermission(accessControlState, caller, #user)) {
       // MasterAdmin may not have #user role yet — allow them through.
       if (not isMasterAdmin(caller)) {
@@ -542,6 +542,8 @@ import UserApproval "user-approval/approval";
         role = #rootAdmin;
         isApproved = true;
         profilePic = profile.profilePic;
+        companyName = profile.companyName;
+        description = profile.description;
       };
       users.add(caller, user);
       AccessControl.assignRole(accessControlState, caller, caller, #admin);
@@ -563,14 +565,23 @@ import UserApproval "user-approval/approval";
       role = existingRole;
       isApproved = existingApproved;
       profilePic = profile.profilePic;
+      companyName = profile.companyName;
+      description = profile.description;
     };
     users.add(caller, user);
   };
 
+  /// Get another user's profile.
+  /// Any approved user can view any other user's profile (needed for community features).
+  /// Anonymous users cannot view profiles.
   public query ({ caller }) func getUserProfile(user : Principal) : async ?User {
-    // Users can view their own profile; admins can view any profile.
-    if (caller != user and not isExecutiveCoreOrMasterAdmin(caller)) {
-      Runtime.trap("Unauthorized: Can only view your own profile");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Anonymous users cannot view profiles");
+    };
+    // Any authenticated, approved user can view profiles (including their own).
+    // This is needed so members can see who posted content, etc.
+    if (not isApprovedOrAdmin(caller)) {
+      Runtime.trap("Unauthorized: Your account is pending approval");
     };
     switch (users.get(user)) {
       case (null) { null };
@@ -601,6 +612,8 @@ import UserApproval "user-approval/approval";
         role = #rootAdmin;
         isApproved = true;
         profilePic = null;
+        companyName = "";
+        description = "";
       };
       users.add(caller, user);
       AccessControl.assignRole(accessControlState, caller, caller, #admin);
@@ -613,6 +626,8 @@ import UserApproval "user-approval/approval";
       role = #member;
       isApproved = false;
       profilePic = null;
+      companyName = "";
+      description = "";
     };
     users.add(caller, user);
   };
@@ -1346,4 +1361,4 @@ import UserApproval "user-approval/approval";
       case (#rootAdmin) { "Root Admin" };
     };
   };
-});
+};

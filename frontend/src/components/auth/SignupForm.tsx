@@ -47,6 +47,8 @@ export default function SignupForm() {
         role: Role.member,
         isApproved: false,
         profilePic: undefined,
+        companyName: '',
+        description: '',
       });
 
       if (picFile) {

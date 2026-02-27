@@ -85,7 +85,9 @@ export interface User {
   'isApproved' : boolean,
   'name' : string,
   'role' : Role,
+  'description' : string,
   'email' : string,
+  'companyName' : string,
   'profilePic' : [] | [ExternalBlob],
 }
 export interface UserApprovalInfo {
@@ -168,7 +170,9 @@ export interface _SERVICE {
    */
   'getAllUsers' : ActorMethod<[], Array<[Principal, User]>>,
   /**
-   * / Returns the caller's full profile. MasterAdmin enforcement is applied here.
+   * / Returns the caller's full profile.
+   * / Requires the caller to be authenticated (non-anonymous) with at least #user permission,
+   * / or to be the MasterAdmin.
    */
   'getCallerUserProfile' : ActorMethod<[], [] | [User]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
@@ -198,6 +202,11 @@ export interface _SERVICE {
    */
   'getPendingUsers' : ActorMethod<[], Array<[Principal, User]>>,
   'getPosts' : ActorMethod<[[] | [PostCategory]], Array<PostView>>,
+  /**
+   * / Get another user's profile.
+   * / Any approved user can view any other user's profile (needed for community features).
+   * / Anonymous users cannot view profiles.
+   */
   'getUserProfile' : ActorMethod<[Principal], [] | [User]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'isCallerApproved' : ActorMethod<[], boolean>,
@@ -209,6 +218,12 @@ export interface _SERVICE {
   'registerForEvent' : ActorMethod<[bigint], undefined>,
   'registerUser' : ActorMethod<[string, string], undefined>,
   'requestApproval' : ActorMethod<[], undefined>,
+  /**
+   * / Save the caller's own profile.
+   * / Requires the caller to be authenticated (non-anonymous) with at least #user permission,
+   * / or to be the MasterAdmin.
+   * / Callers cannot escalate their own role or approval status.
+   */
   'saveCallerUserProfile' : ActorMethod<[User], undefined>,
   'searchPostsByMember' : ActorMethod<[string], Array<PostView>>,
   /**

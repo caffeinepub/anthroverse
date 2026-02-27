@@ -1,138 +1,172 @@
-import React from "react";
-import { Link, useRouterState } from "@tanstack/react-router";
-import { Home, Calendar, Users, User, Shield, Bell } from "lucide-react";
-import { useGetCallerUserProfile, useGetMyNotifications } from "../../hooks/useQueries";
-import { isExecutiveRole } from "../../lib/utils";
-import { Role } from "../../backend";
-import NotificationBell from "../notifications/NotificationBell";
+import React from 'react';
+import { Outlet, useNavigate, useLocation } from '@tanstack/react-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { Bell, LogOut, User, Shield, Home, Users, Calendar, TrendingUp } from 'lucide-react';
+import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import AppSidebar from '../AppSidebar';
+import { useInternetIdentity } from '../../hooks/useInternetIdentity';
+import { useGetCallerUserProfile, useGetMyNotifications } from '../../hooks/useQueries';
+import { getInitials, ROOT_ADMIN_EMAIL } from '../../lib/utils';
+import { Role } from '../../backend';
+import { canManageUsers, canAccessChapterGrowth } from '../../utils/permissions';
 
-interface MainLayoutProps {
-  children: React.ReactNode;
-}
-
-const navItems = [
-  { path: "/", label: "Feed", icon: Home },
-  { path: "/meeting", label: "Meeting", icon: Calendar },
-  { path: "/events", label: "Events", icon: Users },
-  { path: "/profile", label: "Profile", icon: User },
-];
-
-export default function MainLayout({ children }: MainLayoutProps) {
+export default function MainLayout() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { clear } = useInternetIdentity();
+  const queryClient = useQueryClient();
   const { data: userProfile } = useGetCallerUserProfile();
-  const routerState = useRouterState();
-  const currentPath = routerState.location.pathname;
+  const { data: notifications = [] } = useGetMyNotifications();
 
-  const userRole = userProfile?.role ?? Role.member;
-  const isAdmin = isExecutiveRole(userRole);
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const userRole = userProfile?.role;
+  const isAdmin = userRole === Role.rootAdmin || userProfile?.email === ROOT_ADMIN_EMAIL;
+
+  const handleLogout = async () => {
+    await clear();
+    queryClient.clear();
+  };
+
+  const navItems = [
+    { label: 'Feed', path: '/', icon: <Home className="h-4 w-4" /> },
+    { label: 'Events', path: '/events', icon: <Calendar className="h-4 w-4" /> },
+    ...(userRole && canAccessChapterGrowth(userRole)
+      ? [{ label: 'Chapter Growth', path: '/chapter-growth', icon: <TrendingUp className="h-4 w-4" /> }]
+      : []),
+    ...(isAdmin || (userRole && canManageUsers(userRole))
+      ? [{ label: 'Admin', path: '/admin', icon: <Shield className="h-4 w-4" /> }]
+      : []),
+  ];
+
+  const isActive = (path: string) =>
+    location.pathname === path || (path !== '/' && location.pathname.startsWith(path + '/'));
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "#F7F7FB" }}>
-      {/* Header */}
-      <header className="sticky top-0 z-50 bg-white border-b border-border shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img
-              src="/assets/generated/anthroverse-logo.dim_256x256.png"
-              alt="AnthroVerse"
-              className="w-8 h-8 rounded-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = "/assets/generated/logo-mark.dim_256x256.png";
-              }}
-            />
-            <span className="font-poppins font-bold text-primary-700 text-lg">AnthroVerse</span>
-          </div>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        {/* Top Header */}
+        <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-background/95 backdrop-blur px-4">
+          <SidebarTrigger className="-ml-1" />
 
-          <div className="flex items-center gap-2">
-            {isAdmin && (
-              <Link
-                to="/admin"
-                className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold font-poppins transition-colors ${
-                  currentPath === "/admin"
-                    ? "bg-primary-100 text-primary-700"
-                    : "text-muted-foreground hover:text-primary-700 hover:bg-primary-50"
-                }`}
+          {/* Nav buttons */}
+          <nav className="hidden sm:flex items-center gap-1 flex-1">
+            {navItems.map((item) => (
+              <Button
+                key={item.path}
+                variant={isActive(item.path) ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => navigate({ to: item.path })}
+                className="flex items-center gap-1.5 text-xs"
               >
-                <Shield className="w-4 h-4" />
-                Admin
-              </Link>
-            )}
-            <NotificationBell />
-          </div>
-        </div>
+                {item.icon}
+                {item.label}
+              </Button>
+            ))}
+          </nav>
 
-        {/* Desktop nav */}
-        <div className="hidden md:block border-t border-border">
-          <div className="max-w-4xl mx-auto px-4">
-            <nav className="flex gap-1">
-              {navItems.map(({ path, label, icon: Icon }) => (
-                <Link
-                  key={path}
-                  to={path}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold font-poppins transition-colors border-b-2 ${
-                    currentPath === path
-                      ? "border-primary-700 text-primary-700"
-                      : "border-transparent text-muted-foreground hover:text-primary-700"
-                  }`}
+          <div className="flex-1 sm:flex-none" />
+
+          {/* Right side actions */}
+          <div className="flex items-center gap-2">
+            {/* Notifications bell (no route — just a visual indicator) */}
+            <div className="relative">
+              <Button variant="ghost" size="icon">
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center font-bold">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Button>
+            </div>
+
+            {/* User Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full">
+                  <Avatar className="h-7 w-7">
+                    {userProfile?.profilePic ? (
+                      <img
+                        src={userProfile.profilePic.getDirectURL()}
+                        alt={userProfile.name}
+                        className="h-full w-full object-cover rounded-full"
+                      />
+                    ) : (
+                      <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold">
+                        {userProfile ? getInitials(userProfile.name) : '?'}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                {userProfile && (
+                  <>
+                    <div className="px-3 py-2">
+                      <p className="font-semibold text-sm truncate">{userProfile.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{userProfile.email}</p>
+                      {isAdmin && (
+                        <Badge className="mt-1 text-xs bg-rose-500 text-white">Admin</Badge>
+                      )}
+                    </div>
+                    <DropdownMenuSeparator />
+                  </>
+                )}
+                <DropdownMenuItem onClick={() => navigate({ to: '/profile' })}>
+                  <User className="h-4 w-4 mr-2" />
+                  My Profile
+                </DropdownMenuItem>
+                {(isAdmin || (userRole && canManageUsers(userRole))) && (
+                  <DropdownMenuItem onClick={() => navigate({ to: '/admin' })}>
+                    <Shield className="h-4 w-4 mr-2" />
+                    Admin Panel
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-destructive focus:text-destructive focus:bg-destructive/10"
                 >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </Link>
-              ))}
-            </nav>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Log Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Main content */}
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-4 pb-20 md:pb-6">
-        {children}
-      </main>
+        {/* Main Content */}
+        <main className="flex-1 overflow-auto">
+          <Outlet />
+        </main>
 
-      {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-border">
-        <div className="flex">
-          {navItems.map(({ path, label, icon: Icon }) => (
-            <Link
-              key={path}
-              to={path}
-              className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-xs font-semibold font-poppins transition-colors ${
-                currentPath === path
-                  ? "text-primary-700"
-                  : "text-muted-foreground"
-              }`}
+        {/* Footer */}
+        <footer className="border-t border-border py-4 px-6 text-center text-xs text-muted-foreground">
+          <p>
+            © {new Date().getFullYear()} AnthroVerse. Built with{' '}
+            <span className="text-rose-500">♥</span> using{' '}
+            <a
+              href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(typeof window !== 'undefined' ? window.location.hostname : 'anthroverse')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground transition-colors"
             >
-              <Icon className={`w-5 h-5 ${currentPath === path ? "text-primary-700" : ""}`} />
-              {label}
-            </Link>
-          ))}
-          {isAdmin && (
-            <Link
-              to="/admin"
-              className={`flex-1 flex flex-col items-center gap-0.5 py-2 text-xs font-semibold font-poppins transition-colors ${
-                currentPath === "/admin"
-                  ? "text-primary-700"
-                  : "text-muted-foreground"
-              }`}
-            >
-              <Shield className="w-5 h-5" />
-              Admin
-            </Link>
-          )}
-        </div>
-      </nav>
-
-      {/* Footer */}
-      <footer className="hidden md:block bg-white border-t border-border py-3 text-center text-xs text-muted-foreground font-inter">
-        © {new Date().getFullYear()} AnthroVerse · Built with ❤️ using{" "}
-        <a
-          href={`https://caffeine.ai/?utm_source=Caffeine-footer&utm_medium=referral&utm_content=${encodeURIComponent(window.location.hostname)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="underline hover:text-primary-700"
-        >
-          caffeine.ai
-        </a>
-      </footer>
-    </div>
+              caffeine.ai
+            </a>
+          </p>
+        </footer>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

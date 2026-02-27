@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
-  Calendar, MapPin, Plus, Loader2, CheckCircle, X, Users,
-  CreditCard, Clock, Image as ImageIcon
+  Calendar, Plus, Loader2, CheckCircle, X, Users,
+  CreditCard, Clock,
 } from "lucide-react";
 import {
   useGetEvents,
@@ -34,8 +34,9 @@ export default function EventsPage() {
   const registerForEvent = useRegisterForEvent();
   const togglePaid = useTogglePaid();
 
+  // Pass undefined instead of null to match the updated hook signature
   const { data: eventRegistrations = [] } = useGetEventRegistrations(
-    selectedEvent ? selectedEvent.id : null
+    selectedEvent ? selectedEvent.id : undefined
   );
 
   const userRole = userProfile?.role ?? Role.member;
@@ -86,7 +87,7 @@ export default function EventsPage() {
 
   const handleTogglePaid = async (eventId: bigint, userPrincipal: string) => {
     try {
-      const { Principal } = await import("@icp-sdk/core/principal");
+      const { Principal } = await import("@dfinity/principal");
       await togglePaid.mutateAsync({ eventId, user: Principal.fromText(userPrincipal) });
       toast.success("Payment status updated");
     } catch (err: any) {
@@ -95,90 +96,84 @@ export default function EventsPage() {
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4 p-4 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-card p-5 flex items-center justify-between">
+      <div className="bg-card rounded-xl border border-border p-5 flex items-center justify-between">
         <div>
-          <h1 className="font-poppins text-xl font-bold text-primary-700">Events</h1>
-          <p className="text-sm text-muted-foreground font-inter">Chapter events and activities</p>
+          <h1 className="text-xl font-bold text-foreground">Events</h1>
+          <p className="text-sm text-muted-foreground">Chapter events and activities</p>
         </div>
         {canCreate && (
           <button
             onClick={() => setShowCreate(!showCreate)}
-            className="flex items-center gap-1.5 px-3 py-2 gradient-primary text-white text-sm font-semibold font-poppins rounded-lg hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1.5 px-3 py-2 bg-primary text-primary-foreground text-sm font-semibold rounded-lg hover:bg-primary/90 transition-opacity"
           >
             <Plus className="w-4 h-4" />
-            Create
+            {showCreate ? "Cancel" : "Create Event"}
           </button>
         )}
       </div>
 
       {/* Create Event Form */}
       {showCreate && (
-        <div className="bg-white rounded-xl shadow-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-poppins font-semibold text-foreground">New Event</h2>
-            <button onClick={() => setShowCreate(false)} className="p-1 text-muted-foreground hover:text-foreground">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
+        <div className="bg-card rounded-xl border border-border p-5">
+          <h2 className="font-semibold text-foreground mb-4">Create New Event</h2>
           <form onSubmit={handleCreateEvent} className="space-y-3">
-            <input
-              type="text"
-              placeholder="Event title *"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-border text-sm font-inter focus:outline-none focus:ring-2 focus:ring-primary-500"
-              required
-            />
-            <textarea
-              placeholder="Description"
-              value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 rounded-lg border border-border text-sm font-inter focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none"
-            />
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Title *</label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Event title"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Description</label>
+              <textarea
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                rows={3}
+                placeholder="Event description"
+              />
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1 font-poppins">Date *</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Date *</label>
                 <input
                   type="date"
                   value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-border text-sm font-inter focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   required
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-muted-foreground mb-1 font-poppins">Time</label>
+                <label className="block text-sm font-medium text-foreground mb-1">Time</label>
                 <input
                   type="time"
                   value={form.time}
-                  onChange={(e) => setForm({ ...form, time: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-border text-sm font-inter focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
             </div>
-            <input
-              type="text"
-              placeholder="Venue"
-              value={form.venue}
-              onChange={(e) => setForm({ ...form, venue: e.target.value })}
-              className="w-full px-3 py-2 rounded-lg border border-border text-sm font-inter focus:outline-none focus:ring-2 focus:ring-primary-500"
-            />
             <div className="flex gap-2 pt-1">
               <button
                 type="submit"
                 disabled={createEvent.isPending}
-                className="flex-1 gradient-primary text-white font-poppins font-semibold py-2.5 rounded-lg disabled:opacity-60 flex items-center justify-center gap-2"
+                className="flex items-center gap-1.5 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                {createEvent.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                {isExec ? "Publish Event" : "Submit for Approval"}
+                {createEvent.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {createEvent.isPending ? "Creating…" : "Create Event"}
               </button>
               <button
                 type="button"
                 onClick={() => setShowCreate(false)}
-                className="px-4 py-2.5 border border-border rounded-lg text-sm font-inter text-muted-foreground hover:text-foreground"
+                className="px-4 py-2 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
@@ -189,125 +184,143 @@ export default function EventsPage() {
 
       {/* Pending Events (exec only) */}
       {isExec && pendingEvents.length > 0 && (
-        <div className="bg-white rounded-xl shadow-card overflow-hidden">
-          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-            <Clock className="w-4 h-4 text-warning" />
-            <span className="font-poppins font-semibold text-sm">Pending Events ({pendingEvents.length})</span>
-          </div>
-          <div className="divide-y divide-border">
-            {pendingEvents.map((event) => (
-              <div key={event.id.toString()} className="p-4 flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <p className="font-poppins font-semibold text-sm text-foreground">{event.title}</p>
-                  <p className="text-xs text-muted-foreground font-inter mt-0.5">{event.description}</p>
+        <div className="bg-card rounded-xl border border-amber-200 dark:border-amber-800 p-5">
+          <h2 className="font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-500" />
+            Pending Approval ({pendingEvents.length})
+          </h2>
+          <div className="space-y-2">
+            {pendingEvents.map(event => (
+              <div key={event.id.toString()} className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+                <div>
+                  <p className="font-medium text-sm text-foreground">{event.title}</p>
+                  <p className="text-xs text-muted-foreground">{formatTimestamp(event.date)}</p>
                 </div>
-                <div className="flex gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => handleApprove(event.id)}
-                    className="p-1.5 rounded-lg bg-success/10 text-success hover:bg-success/20 transition-colors"
-                    title="Approve"
-                  >
-                    <CheckCircle className="w-4 h-4" />
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleApprove(event.id)}
+                  disabled={approveEvent.isPending}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white text-xs font-medium rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                >
+                  <CheckCircle className="w-3 h-3" />
+                  Approve
+                </button>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Events Grid */}
+      {/* Events List */}
       {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-primary-500" />
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       ) : events.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl shadow-card">
-          <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
-          <p className="font-poppins font-semibold text-foreground">No events yet</p>
-          <p className="text-sm text-muted-foreground font-inter mt-1">Events will appear here once published.</p>
+        <div className="text-center py-12 text-muted-foreground">
+          <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="font-medium">No events yet</p>
+          <p className="text-sm mt-1">Check back later for upcoming events</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {events.map((event) => {
+        <div className="space-y-3">
+          {events.map(event => {
             const registered = isRegistered(event.id);
-            const eventDate = new Date(Number(event.date) / 1_000_000);
+            const isSelected = selectedEvent?.id === event.id;
+
             return (
-              <div key={event.id.toString()} className="bg-white rounded-xl shadow-card overflow-hidden hover:shadow-card-hover transition-shadow">
-                {/* Banner */}
-                <div className="h-32 gradient-accent flex items-center justify-center">
-                  {event.banner ? (
-                    <img src={event.banner.getDirectURL()} alt={event.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <Calendar className="w-10 h-10 text-white/60" />
-                  )}
-                </div>
-
+              <div key={event.id.toString()} className="bg-card rounded-xl border border-border overflow-hidden">
                 <div className="p-4">
-                  <h3 className="font-poppins font-bold text-foreground text-sm mb-2">{event.title}</h3>
-                  {event.description && (
-                    <p className="text-xs text-muted-foreground font-inter mb-3 line-clamp-2">{event.description}</p>
-                  )}
-
-                  <div className="space-y-1 mb-3">
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-inter">
-                      <Calendar className="w-3.5 h-3.5" />
-                      {eventDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-semibold text-foreground">{event.title}</h3>
+                        {event.status === EventStatus.pending && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400">
+                            Pending
+                          </span>
+                        )}
+                      </div>
+                      {event.description && (
+                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{event.description}</p>
+                      )}
+                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3 h-3" />
+                          {formatTimestamp(event.date)}
+                        </span>
+                        {event.registrationLimit && (
+                          <span className="flex items-center gap-1">
+                            <Users className="w-3 h-3" />
+                            Limit: {event.registrationLimit.toString()}
+                          </span>
+                        )}
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2">
-                    {registered ? (
-                      <span className="badge-paid">✓ Registered</span>
-                    ) : (
-                      <button
-                        onClick={() => handleRegister(event.id)}
-                        disabled={registerForEvent.isPending}
-                        className="flex-1 gradient-primary text-white text-xs font-semibold font-poppins py-2 rounded-lg disabled:opacity-60 flex items-center justify-center gap-1"
-                      >
-                        {registerForEvent.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                        Register
-                      </button>
-                    )}
-
-                    {isExec && (
-                      <button
-                        onClick={() => setSelectedEvent(selectedEvent?.id === event.id ? null : event)}
-                        className="px-3 py-2 border border-border rounded-lg text-xs font-inter text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-
-                  {/* Registrations panel */}
-                  {isExec && selectedEvent?.id === event.id && (
-                    <div className="mt-3 border-t border-border pt-3">
-                      <p className="text-xs font-semibold font-poppins text-foreground mb-2">Registrations</p>
-                      {eventRegistrations.length === 0 ? (
-                        <p className="text-xs text-muted-foreground font-inter">No registrations yet</p>
-                      ) : (
-                        <div className="space-y-1.5">
-                          {eventRegistrations.map((reg, i) => (
-                            <div key={i} className="flex items-center justify-between gap-2">
-                              <span className="text-xs font-inter text-foreground truncate">
-                                {reg.user.toString().slice(0, 12)}…
-                              </span>
-                              <button
-                                onClick={() => handleTogglePaid(reg.eventId, reg.user.toString())}
-                                className={`text-xs font-semibold px-2 py-0.5 rounded-full transition-colors ${
-                                  reg.isPaid ? "badge-paid" : "badge-unpaid"
-                                }`}
-                              >
-                                {reg.isPaid ? "Paid" : "Unpaid"}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
+                    <div className="flex flex-col gap-2 shrink-0">
+                      {event.status === EventStatus.approved && (
+                        <button
+                          onClick={() => handleRegister(event.id)}
+                          disabled={registered || registerForEvent.isPending}
+                          className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                            registered
+                              ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 cursor-default"
+                              : "bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                          }`}
+                        >
+                          {registered ? (
+                            <span className="flex items-center gap-1"><CheckCircle className="w-3 h-3" />Registered</span>
+                          ) : (
+                            "Register"
+                          )}
+                        </button>
+                      )}
+                      {isExec && (
+                        <button
+                          onClick={() => setSelectedEvent(isSelected ? null : event)}
+                          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border hover:bg-muted transition-colors"
+                        >
+                          {isSelected ? "Hide" : "Registrations"}
+                        </button>
                       )}
                     </div>
-                  )}
+                  </div>
                 </div>
+
+                {/* Registrations panel */}
+                {isSelected && isExec && (
+                  <div className="border-t border-border p-4 bg-muted/30">
+                    <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Registrations ({eventRegistrations.length})
+                    </h4>
+                    {eventRegistrations.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No registrations yet</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {eventRegistrations.map(reg => (
+                          <div key={reg.user.toString()} className="flex items-center justify-between p-2 rounded-lg bg-card border border-border">
+                            <div>
+                              <p className="text-xs font-mono text-foreground">{reg.user.toString().slice(0, 20)}…</p>
+                              <p className="text-xs text-muted-foreground">{formatTimestamp(reg.timestamp)}</p>
+                            </div>
+                            <button
+                              onClick={() => handleTogglePaid(event.id, reg.user.toString())}
+                              disabled={togglePaid.isPending}
+                              className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-lg transition-colors ${
+                                reg.isPaid
+                                  ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+                              }`}
+                            >
+                              <CreditCard className="w-3 h-3" />
+                              {reg.isPaid ? "Paid" : "Mark Paid"}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}

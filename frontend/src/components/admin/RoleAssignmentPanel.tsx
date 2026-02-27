@@ -1,128 +1,152 @@
 import React, { useState } from 'react';
-import { useAssignRole } from '../../hooks/useQueries';
-import { Role, type UserApprovalInfo } from '../../backend';
-import { roleToLabel } from '../../lib/utils';
-import { Button } from '../ui/button';
+import { UserCheck, ChevronDown } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../ui/select';
+} from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Loader2 } from 'lucide-react';
+import { Role } from '../../backend';
+import { Principal } from '@dfinity/principal';
+import { useGetAllUsers, useAssignRole } from '../../hooks/useQueries';
+import { getInitials, roleToLabel, roleBadgeClass, ROOT_ADMIN_EMAIL } from '../../lib/utils';
 
-interface RoleAssignmentPanelProps {
-  approvals: UserApprovalInfo[];
-  userNames: Record<string, string>;
-}
-
-const ASSIGNABLE_ROLES: Role[] = [
-  Role.member,
-  Role.elt,
-  Role.mc,
-  Role.lt,
-  Role.secretaryTreasurer,
-  Role.vicePresident,
-  Role.president,
+const ASSIGNABLE_ROLES: { value: Role; label: string }[] = [
+  { value: Role.president, label: 'President' },
+  { value: Role.vicePresident, label: 'Vice President' },
+  { value: Role.secretaryTreasurer, label: 'Secretary Treasurer' },
+  { value: Role.lt, label: 'LT' },
+  { value: Role.mc, label: 'MC' },
+  { value: Role.elt, label: 'ELT' },
+  { value: Role.member, label: 'Member' },
 ];
 
-export default function RoleAssignmentPanel({
-  approvals,
-  userNames,
-}: RoleAssignmentPanelProps) {
-  const assignRole = useAssignRole();
+export default function RoleAssignmentPanel() {
+  const { data: allUsers = [], isLoading } = useGetAllUsers();
+  const assignRoleMutation = useAssignRole();
   const [selectedRoles, setSelectedRoles] = useState<Record<string, Role>>({});
 
-  const approvedUsers = approvals.filter(
-    (a) => a.status.toString() === 'approved' || String(a.status) === 'approved',
+  const approvedUsers = allUsers.filter(
+    ([, user]) => user.isApproved && user.email !== ROOT_ADMIN_EMAIL
   );
 
-  const handleAssign = async (principalStr: string) => {
-    const role = selectedRoles[principalStr];
-    if (!role) {
-      toast.error('Please select a role first');
-      return;
-    }
-
+  const handleAssignRole = async (principal: Principal, role: Role) => {
     try {
-      await assignRole.mutateAsync({
-        user: approvedUsers.find((a) => a.principal.toString() === principalStr)!
-          .principal,
-        role,
-      });
-      toast.success(`Role assigned successfully`);
+      await assignRoleMutation.mutateAsync({ user: principal, role });
+      toast.success(`Role "${roleToLabel(role)}" assigned successfully`);
+      // Clear the selection for this user
       setSelectedRoles((prev) => {
         const next = { ...prev };
-        delete next[principalStr];
+        delete next[principal.toString()];
         return next;
       });
-    } catch (err: unknown) {
-      const message =
-        err instanceof Error ? err.message : 'Failed to assign role';
-      toast.error(message);
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to assign role');
     }
   };
 
-  if (approvedUsers.length === 0) {
+  if (isLoading) {
     return (
-      <p className="text-muted-foreground text-sm">
-        No approved members to assign roles to.
-      </p>
+      <Card>
+        <CardContent className="flex items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+        </CardContent>
+      </Card>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {approvedUsers.map((approval) => {
-        const principalStr = approval.principal.toString();
-        const name = userNames[principalStr] || principalStr.slice(0, 12) + '…';
-        const isPending =
-          assignRole.isPending &&
-          assignRole.variables?.user.toString() === principalStr;
-
-        return (
-          <div
-            key={principalStr}
-            className="flex items-center gap-3 rounded-lg border border-border bg-card p-3"
-          >
-            <span className="flex-1 truncate text-sm font-medium">{name}</span>
-            <Select
-              value={selectedRoles[principalStr] ?? ''}
-              onValueChange={(val) =>
-                setSelectedRoles((prev) => ({
-                  ...prev,
-                  [principalStr]: val as Role,
-                }))
-              }
-              disabled={isPending}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue placeholder="Select role…" />
-              </SelectTrigger>
-              <SelectContent>
-                {ASSIGNABLE_ROLES.map((r) => (
-                  <SelectItem key={r} value={r}>
-                    {roleToLabel(r)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              onClick={() => handleAssign(principalStr)}
-              disabled={!selectedRoles[principalStr] || isPending}
-            >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                'Assign'
-              )}
-            </Button>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <UserCheck className="h-5 w-5 text-primary" />
+          Assign Roles to Members
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {approvedUsers.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">
+            <UserCheck className="h-12 w-12 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No approved members yet</p>
+            <p className="text-sm mt-1">Approve members first to assign roles</p>
           </div>
-        );
-      })}
-    </div>
+        ) : (
+          <div className="space-y-3">
+            {approvedUsers.map(([principal, user]) => {
+              const principalStr = principal.toString();
+              const selectedRole = selectedRoles[principalStr];
+
+              return (
+                <div
+                  key={principalStr}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/20 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-9 w-9">
+                      {user.profilePic ? (
+                        <img
+                          src={user.profilePic.getDirectURL()}
+                          alt={user.name}
+                          className="h-full w-full object-cover rounded-full"
+                        />
+                      ) : (
+                        <AvatarFallback className="bg-primary/10 text-primary text-sm font-semibold">
+                          {getInitials(user.name)}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <div>
+                      <p className="font-medium text-sm text-foreground">{user.name}</p>
+                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <Badge className={`text-xs ${roleBadgeClass(user.role)}`}>
+                      {roleToLabel(user.role)}
+                    </Badge>
+                    <Select
+                      value={selectedRole ?? ''}
+                      onValueChange={(val) =>
+                        setSelectedRoles((prev) => ({
+                          ...prev,
+                          [principalStr]: val as Role,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="w-40 h-8 text-xs">
+                        <SelectValue placeholder="Change role..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ASSIGNABLE_ROLES.map((r) => (
+                          <SelectItem key={r.value} value={r.value} className="text-xs">
+                            {r.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!selectedRole || assignRoleMutation.isPending}
+                      onClick={() => selectedRole && handleAssignRole(principal, selectedRole)}
+                      className="h-8 text-xs"
+                    >
+                      Assign
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

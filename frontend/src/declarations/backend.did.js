@@ -40,7 +40,9 @@ export const User = IDL.Record({
   'isApproved' : IDL.Bool,
   'name' : IDL.Text,
   'role' : Role,
+  'description' : IDL.Text,
   'email' : IDL.Text,
+  'companyName' : IDL.Text,
   'profilePic' : IDL.Opt(ExternalBlob),
 });
 export const Comment = IDL.Record({
@@ -164,7 +166,7 @@ export const idlService = IDL.Service({
       [IDL.Vec(IDL.Tuple(IDL.Principal, User))],
       ['query'],
     ),
-  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(User)], []),
+  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(User)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getComments' : IDL.Func([IDL.Nat], [IDL.Vec(Comment)], ['query']),
   'getEventRegistrations' : IDL.Func(
@@ -249,7 +251,9 @@ export const idlFactory = ({ IDL }) => {
     'isApproved' : IDL.Bool,
     'name' : IDL.Text,
     'role' : Role,
+    'description' : IDL.Text,
     'email' : IDL.Text,
+    'companyName' : IDL.Text,
     'profilePic' : IDL.Opt(ExternalBlob),
   });
   const Comment = IDL.Record({
@@ -373,7 +377,7 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(IDL.Tuple(IDL.Principal, User))],
         ['query'],
       ),
-    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(User)], []),
+    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(User)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getComments' : IDL.Func([IDL.Nat], [IDL.Vec(Comment)], ['query']),
     'getEventRegistrations' : IDL.Func(
